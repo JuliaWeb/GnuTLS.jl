@@ -5,7 +5,7 @@ using BinDeps
 nettle = library_dependency("nettle", aliases = ["libnettle"], runtime = false)
 gnutls = library_dependency("gnutls", aliases = ["libgnutls","libgnutls28"], depends = [nettle])
 
-#@BinDeps.if_install begin
+@BinDeps.if_install begin
 
 provides(Sources,{
 	URI("http://www.lysator.liu.se/~nisse/archive/nettle-2.7.tar.gz") => nettle,
@@ -14,19 +14,21 @@ provides(Sources,{
 provides(Binaries,URI("ftp://ftp.gnutls.org/gcrypt/gnutls/w32/gnutls-3.2.1-w32.zip"),gnutls,os = :Windows)
 
 provides(Homebrew,"gnutls",gnutls)
-provides(AptGet,"libgnutls28",gnutls)
+provides(AptGet,"libgnutls28",gnutls) # Yes, this is the most current version, I guess they broke binary compatibility in v2.8?
 provides(Yum,"libgnutls",gnutls)
 
-libdirs = String["/Users/keno/Documents/src/julia/usr/lib"]
-includedirs = String["/Users/keno/Documents/src/julia/usr/include"]
+julia_usrdir = normpath(JULIA_HOME*"/../") # This is a stopgap, we need a better builtin solution to get the included libraries
+libdirs = String["$(julia_usrdir)/lib"]
+includedirs = String["$(julia_usrdir)/include"]
 
-ENV["LD_LIBRARY_PATH"]="/Users/keno/Documents/src/julia/usr/lib"
+env = {"HOGWEED_LIBS" => "-L$(libdirs[1]) -lhogweed -lgmp", "NETTLE_LIBS" => "-L$(libdirs[1]) -lnettle -lgmp", "LIBS" => "-lgmp ","LD_LIBRARY_PATH"=>libdirs[1]}
+
 provides(BuildProcess,
 	{
-		Autotools(lib_dirs = libdirs, include_dirs = includedirs, env = {"LIBS" => "-lgmp "}) => nettle,
-		Autotools(libtarget = "lib/libgnutls.la", lib_dirs = libdirs, include_dirs = includedirs, env = {"LIBS" => "-lgmp "}) => gnutls
+		Autotools(lib_dirs = libdirs, include_dirs = includedirs, env = env) => nettle,
+		Autotools(libtarget = "lib/libgnutls.la", lib_dirs = libdirs, include_dirs = includedirs, env = env) => gnutls
 	})
 
 @BinDeps.install
 
-#end
+end
