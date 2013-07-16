@@ -3,7 +3,7 @@ module GnuTLS
 using BinDeps
 @BinDeps.load_dependencies [:gnutls]
 
-import Base: isopen, write, read, readall, readavailable, close
+import Base: isopen, write, read, readall, readavailable, close, show, nb_available
 
 # GnuTLS initialization
 
@@ -103,6 +103,10 @@ function set_system_trust!(c::CertificateStore)
 	true
 end
 
+function load_certificate(c::CertificateStore,certfile::String,keyfile::String,isPEM=false)
+	gnutls_error(ccall((:gnutls_certificate_set_x509_key_file,gnutls),Int32,(Ptr{Void},Ptr{Uint8},Ptr{Uint8},Int32),c.handle,certfile,keyfile,isPEM?1:0))
+end
+
 const system_certificate_store = CertificateStore()
 const has_system_trust = set_system_trust!(system_certificate_store)
 
@@ -119,7 +123,12 @@ function poll_readable{S<:IO}(io::S,ms::Uint32)
 	wait(c)::Int32
 end
 
-read_ptr{S<:IO}(io::S,ptr::Ptr{Uint8},size::Csize_t) = (read(io,pointer_to_array(ptr,int(size)));signed(size))
+function read_ptr{S<:IO}(io::S,ptr::Ptr{Uint8},size::Csize_t) 
+	Base.wait_readnb(io,1)
+	n = min(nb_available(io.buffer),size)
+	read(io,pointer_to_array(ptr,int(n)))
+	return signed(n)
+end
 
 function associate_stream{S<:IO,T<:IO}(s::Session, read::S, write::T=read)
 	s.read = read
@@ -185,9 +194,9 @@ function readtobuf(io::Session,buf::IOBuffer,nb)
 	Base.ensureroom(buf,int(nb))
 	ret = ccall((:gnutls_record_recv,gnutls), Int, (Ptr{Void},Ptr{Uint8},Csize_t), io.handle, pointer(buf.data,buf.size+1), nb)
 	if ret < 0
-		gnutls_error(ret)
+		gnutls_error(int32(ret))
 	elseif ret == 0
-		io.open = false
+		close(io)
 		return false
 	end
 	buf.size += ret
@@ -229,7 +238,7 @@ end
 
 read(io::Session, ::Type{Uint8}) = (x=Array(Uint8,1);read(io,x);x[1])
 
-export handshake!, associate_stream, set_priority_string!, set_credentials!
+export  handshake!, associate_stream, set_priority_string!, set_credentials!
 
 end
 
