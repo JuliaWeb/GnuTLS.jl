@@ -240,6 +240,24 @@ read(io::Session, ::Type{Uint8}) = (x=Array(Uint8,1);read(io,x);x[1])
 
 export  handshake!, associate_stream, set_priority_string!, set_credentials!
 
+const GNUTLS_DIG_UNKNOWN 	= 0
+const GNUTLS_DIG_NULL 		= 1
+const GNUTLS_DIG_MD5 		= 2
+const GNUTLS_DIG_SHA1 		= 3
+const GNUTLS_DIG_RMD160 	= 4
+const GNUTLS_DIG_MD2 		= 5
+const GNUTLS_DIG_SHA256 	= 6
+const GNUTLS_DIG_SHA384 	= 7
+const GNUTLS_DIG_SHA512 	= 8
+const GNUTLS_DIG_SHA224 	= 9
+
+export SHA1
+
+immutable SHA1; end
+# Access to GnuTLS's hashing capabilities. 
+hash(::Type{SHA1},data::Array{Uint8,1}) = (ret = Array(Uint8,20); 
+	ccall((:gnutls_hash_fast,gnutls),Void,(Int32,Ptr{Uint8},Ptr{Uint8},Ptr{Uint8}),GNUTLS_DIG_SHA1,data,sizeof(data),ret);ret)
+
 end
 
 GnuTLS.init()
