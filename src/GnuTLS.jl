@@ -254,9 +254,31 @@ const GNUTLS_DIG_SHA224 	= 9
 export SHA1
 
 immutable SHA1; end
+immutable MD5; end
+immutable RMD160; end
+immutable MD2; end
+immutable SHA256; end
+immutable SHA384; end
+immutable SHA512; end
+immutable SHA224; end
+
 # Access to GnuTLS's hashing capabilities. 
 hash(::Type{SHA1},data::Array{Uint8,1}) = (ret = Array(Uint8,20); 
 	ccall((:gnutls_hash_fast,gnutls),Void,(Int32,Ptr{Uint8},Ptr{Uint8},Ptr{Uint8}),GNUTLS_DIG_SHA1,data,sizeof(data),ret);ret)
+hash(::Type{MD5},data::Array{Uint8,1}) = (ret = Array(Uint8,16); 
+	ccall((:gnutls_hash_fast,gnutls),Void,(Int32,Ptr{Uint8},Ptr{Uint8},Ptr{Uint8}),GNUTLS_DIG_MD5,data,sizeof(data),ret);ret)
+hash(::Type{RMD160},data::Array{Uint8,1}) = (ret = Array(Uint8,20); 
+	ccall((:gnutls_hash_fast,gnutls),Void,(Int32,Ptr{Uint8},Ptr{Uint8},Ptr{Uint8}),GNUTLS_DIG_RMD160,data,sizeof(data),ret);ret)
+hash(::Type{MD2},data::Array{Uint8,1}) = (ret = Array(Uint8,16); 
+	ccall((:gnutls_hash_fast,gnutls),Void,(Int32,Ptr{Uint8},Ptr{Uint8},Ptr{Uint8}),GNUTLS_DIG_MD2,data,sizeof(data),ret);ret)
+hash(::Type{SHA256},data::Array{Uint8,1}) = (ret = Array(Uint8,32); 
+	ccall((:gnutls_hash_fast,gnutls),Void,(Int32,Ptr{Uint8},Ptr{Uint8},Ptr{Uint8}),GNUTLS_DIG_SHA256,data,sizeof(data),ret);ret)
+hash(::Type{SHA384},data::Array{Uint8,1}) = (ret = Array(Uint8,48); 
+	ccall((:gnutls_hash_fast,gnutls),Void,(Int32,Ptr{Uint8},Ptr{Uint8},Ptr{Uint8}),GNUTLS_DIG_SHA384,data,sizeof(data),ret);ret)
+hash(::Type{SHA512},data::Array{Uint8,1}) = (ret = Array(Uint8,64); 
+	ccall((:gnutls_hash_fast,gnutls),Void,(Int32,Ptr{Uint8},Ptr{Uint8},Ptr{Uint8}),GNUTLS_DIG_SHA512,data,sizeof(data),ret);ret)
+hash(::Type{SHA224},data::Array{Uint8,1}) = (ret = Array(Uint8,28); 
+	ccall((:gnutls_hash_fast,gnutls),Void,(Int32,Ptr{Uint8},Ptr{Uint8},Ptr{Uint8}),GNUTLS_DIG_SHA224,data,sizeof(data),ret);ret)
 
 end
 
