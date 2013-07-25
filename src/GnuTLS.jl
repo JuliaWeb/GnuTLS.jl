@@ -242,7 +242,7 @@ export  handshake!, associate_stream, set_priority_string!, set_credentials!
 
 
 
-export SHA1, MD5, RMD160, SHA256, SHA384, SHA512, SHA224, HMACState, initHash, update, digest!, hash
+export SHA1, MD5, RMD160, SHA256, SHA384, SHA512, SHA224, HMACState, initHash, update, digest!, hexdigest!, hash
 abstract HashAlgorithm
 
 
@@ -307,6 +307,20 @@ function digest!{T}(state::HMACState{T})
         ccall((:gnutls_hmac_output,gnutls),Void,(Ptr{Void},Ptr{Uint8}),
               state.handle,ret)
     	ret
+end
+
+# similar to Python's hmac.HMAC.hexdigest
+function hexdigest!(state::HMACState)
+    d = digest!(state)
+    n = length(d)
+    h = Array(Uint8, 2*n)
+    for i = 1:n
+        x = d[i]
+        h[2*i] = Base.digit(x & 0xf)
+        x >>= 4
+        h[2*i-1] = Base.digit(x & 0xf)
+    end
+    ASCIIString(h)
 end
 
 # Hashing
