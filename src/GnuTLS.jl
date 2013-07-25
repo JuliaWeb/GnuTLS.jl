@@ -242,7 +242,7 @@ export  handshake!, associate_stream, set_priority_string!, set_credentials!
 
 
 
-export SHA1, MD5, RMD160, SHA256, SHA384, SHA512, SHA224, initHMAC, initHash, update, takeresult!, hash
+export SHA1, MD5, RMD160, SHA256, SHA384, SHA512, SHA224, HMACState, initHash, update, digest!, hash
 abstract HashAlgorithm
 
 
@@ -275,19 +275,21 @@ gnutls_id(::Type{SHA384}) 	= 7
 gnutls_id(::Type{SHA512}) 	= 8
 gnutls_id(::Type{SHA224}) 	= 9
 
-
-function deinit_state(state)
-	if state.handle != C_NULL
-		takeresult!(state)
-	end
-end
-
 # HMAC
 type HMACState{T<:HashAlgorithm}
 	handle::Ptr{Void}
 end
 
-function initHMAC{T<:HashAlgorithm}(::Type{T},key)
+function deinit_state{T}(state::HMACState{T})
+	if state.handle != C_NULL
+	    ret = Array(Uint8,output_size(T)); 
+            ccall((:gnutls_hmac_deinit,gnutls),Void,(Ptr{Void},Ptr{Uint8}),
+                  state.handle,ret)
+	    state.handle = C_NULL
+	end
+end
+
+function HMACState{T<:HashAlgorithm}(::Type{T},key)
 	x = Array(Ptr{Void},1)
 	gnutls_error(ccall((:gnutls_hmac_init,gnutls),Int32,(Ptr{Ptr{Void}},Int32,Ptr{Uint8},Csize_t),x,gnutls_id(T),key,sizeof(key)))
 	ret = HMACState{T}(x[1])
@@ -300,11 +302,11 @@ function update{T}(state::HMACState{T},data)
 	gnutls_error(ccall((:gnutls_hmac,gnutls),Int32,(Ptr{Void},Ptr{Uint8},Csize_t),state.handle,data,sizeof(data)))
 end
 
-function takeresult!{T}(state::HMACState{T})
+function digest!{T}(state::HMACState{T})
 	ret = Array(Uint8,output_size(T)); 
-	ccall((:gnutls_hmac_deinit,gnutls),Void,(Ptr{Void},Ptr{Uint8}),state.handle,ret)
-	state.handle = C_NULL
-	ret
+        ccall((:gnutls_hmac_output,gnutls),Void,(Ptr{Void},Ptr{Uint8}),
+              state.handle,ret)
+    	ret
 end
 
 # Hashing
@@ -325,7 +327,7 @@ function update{T}(state::HashState{T},data)
 	gnutls_error(ccall((:gnutls_hash,gnutls),Int32,(Ptr{Void},Ptr{Uint8},Csize_t),state.handle,data,sizeof(data)))
 end
 
-function takeresult!{T}(state::HashState{T})
+function digest!{T}(state::HashState{T})
 	ret = Array(Uint8,output_size(T)); 
 	ccall((:gnutls_hash_deinit,gnutls),Void,(Ptr{Void},Ptr{Uint8}),state.handle,ret)
 	state.handle = C_NULL
