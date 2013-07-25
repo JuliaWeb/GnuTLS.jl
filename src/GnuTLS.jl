@@ -240,45 +240,102 @@ read(io::Session, ::Type{Uint8}) = (x=Array(Uint8,1);read(io,x);x[1])
 
 export  handshake!, associate_stream, set_priority_string!, set_credentials!
 
-const GNUTLS_DIG_UNKNOWN 	= 0
-const GNUTLS_DIG_NULL 		= 1
-const GNUTLS_DIG_MD5 		= 2
-const GNUTLS_DIG_SHA1 		= 3
-const GNUTLS_DIG_RMD160 	= 4
-const GNUTLS_DIG_MD2 		= 5
-const GNUTLS_DIG_SHA256 	= 6
-const GNUTLS_DIG_SHA384 	= 7
-const GNUTLS_DIG_SHA512 	= 8
-const GNUTLS_DIG_SHA224 	= 9
 
-export SHA1
 
-immutable SHA1; end
-immutable MD5; end
-immutable RMD160; end
-immutable MD2; end
-immutable SHA256; end
-immutable SHA384; end
-immutable SHA512; end
-immutable SHA224; end
+export SHA1, MD5, RMD160, SHA256, SHA384, SHA512, SHA224, initHMAC, initHash, update, takeresult!, hash
+abstract HashAlgorithm
 
-# Access to GnuTLS's hashing capabilities. 
-hash(::Type{SHA1},data::Array{Uint8,1}) = (ret = Array(Uint8,20); 
-	ccall((:gnutls_hash_fast,gnutls),Void,(Int32,Ptr{Uint8},Ptr{Uint8},Ptr{Uint8}),GNUTLS_DIG_SHA1,data,sizeof(data),ret);ret)
-hash(::Type{MD5},data::Array{Uint8,1}) = (ret = Array(Uint8,16); 
-	ccall((:gnutls_hash_fast,gnutls),Void,(Int32,Ptr{Uint8},Ptr{Uint8},Ptr{Uint8}),GNUTLS_DIG_MD5,data,sizeof(data),ret);ret)
-hash(::Type{RMD160},data::Array{Uint8,1}) = (ret = Array(Uint8,20); 
-	ccall((:gnutls_hash_fast,gnutls),Void,(Int32,Ptr{Uint8},Ptr{Uint8},Ptr{Uint8}),GNUTLS_DIG_RMD160,data,sizeof(data),ret);ret)
-hash(::Type{MD2},data::Array{Uint8,1}) = (ret = Array(Uint8,16); 
-	ccall((:gnutls_hash_fast,gnutls),Void,(Int32,Ptr{Uint8},Ptr{Uint8},Ptr{Uint8}),GNUTLS_DIG_MD2,data,sizeof(data),ret);ret)
-hash(::Type{SHA256},data::Array{Uint8,1}) = (ret = Array(Uint8,32); 
-	ccall((:gnutls_hash_fast,gnutls),Void,(Int32,Ptr{Uint8},Ptr{Uint8},Ptr{Uint8}),GNUTLS_DIG_SHA256,data,sizeof(data),ret);ret)
-hash(::Type{SHA384},data::Array{Uint8,1}) = (ret = Array(Uint8,48); 
-	ccall((:gnutls_hash_fast,gnutls),Void,(Int32,Ptr{Uint8},Ptr{Uint8},Ptr{Uint8}),GNUTLS_DIG_SHA384,data,sizeof(data),ret);ret)
-hash(::Type{SHA512},data::Array{Uint8,1}) = (ret = Array(Uint8,64); 
-	ccall((:gnutls_hash_fast,gnutls),Void,(Int32,Ptr{Uint8},Ptr{Uint8},Ptr{Uint8}),GNUTLS_DIG_SHA512,data,sizeof(data),ret);ret)
-hash(::Type{SHA224},data::Array{Uint8,1}) = (ret = Array(Uint8,28); 
-	ccall((:gnutls_hash_fast,gnutls),Void,(Int32,Ptr{Uint8},Ptr{Uint8},Ptr{Uint8}),GNUTLS_DIG_SHA224,data,sizeof(data),ret);ret)
+
+immutable SHA1 <: HashAlgorithm; end
+immutable MD5 <: HashAlgorithm; end
+immutable RMD160 <: HashAlgorithm; end
+immutable MD2 <: HashAlgorithm; end
+immutable SHA256 <: HashAlgorithm; end
+immutable SHA384 <: HashAlgorithm; end
+immutable SHA512 <: HashAlgorithm; end
+immutable SHA224 <: HashAlgorithm; end
+
+# Output size of the algorithm in Bytes
+output_size(::Type{SHA1}) 	= 20
+output_size(::Type{MD5}) 	= 16
+output_size(::Type{RMD160}) = 20
+output_size(::Type{MD2}) 	= 16
+output_size(::Type{SHA256}) = 32
+output_size(::Type{SHA384}) = 48
+output_size(::Type{SHA512}) = 64
+output_size(::Type{SHA224}) = 28
+
+# Gnutls algorithm id 
+gnutls_id(::Type{SHA1})	 	= 3
+gnutls_id(::Type{MD5}) 		= 2
+gnutls_id(::Type{RMD160}) 	= 4
+gnutls_id(::Type{MD2}) 		= 5
+gnutls_id(::Type{SHA256}) 	= 6
+gnutls_id(::Type{SHA384}) 	= 7
+gnutls_id(::Type{SHA512}) 	= 8
+gnutls_id(::Type{SHA224}) 	= 9
+
+
+function deinit_state(state)
+	if state.handle != C_NULL
+		takeresult!(state)
+	end
+end
+
+# HMAC
+type HMACState{T<:HashAlgorithm}
+	handle::Ptr{Void}
+end
+
+function initHMAC{T<:HashAlgorithm}(::Type{T},key)
+	x = Array(Ptr{Void},1)
+	gnutls_error(ccall((:gnutls_hmac_init,gnutls),Int32,(Ptr{Ptr{Void}},Int32,Ptr{Uint8},Csize_t),x,gnutls_id(T),key,sizeof(key)))
+	ret = HMACState{T}(x[1])
+	finalizer(ret,deinit_state)
+	ret
+end
+
+function update{T}(state::HMACState{T},data) 
+	state.handle == C_NULL && error("Cannot update an HMAC that was freed.")
+	gnutls_error(ccall((:gnutls_hmac,gnutls),Int32,(Ptr{Void},Ptr{Uint8},Csize_t),state.handle,data,sizeof(data)))
+end
+
+function takeresult!{T}(state::HMACState{T})
+	ret = Array(Uint8,output_size(T)); 
+	ccall((:gnutls_hmac_deinit,gnutls),Void,(Ptr{Void},Ptr{Uint8}),state.handle,ret)
+	state.handle = C_NULL
+	ret
+end
+
+# Hashing
+type HashState{T<:HashAlgorithm}
+	handle::Ptr{Void}
+end
+
+function initHash{T<:HashAlgorithm}(::Type{T})
+	x = Array(Ptr{Void},1)
+	gnutls_error(ccall((:gnutls_hash_init,gnutls),Int32,(Ptr{Ptr{Void}},Int32),x,gnutls_id(T)))
+	ret = HashState{T}(x[1])
+	finalizer(ret,deinit_state)
+	ret
+end
+
+function update{T}(state::HashState{T},data)
+	state.handle == C_NULL && error("Cannot update a Hash that was freed.")
+	gnutls_error(ccall((:gnutls_hash,gnutls),Int32,(Ptr{Void},Ptr{Uint8},Csize_t),state.handle,data,sizeof(data)))
+end
+
+function takeresult!{T}(state::HashState{T})
+	ret = Array(Uint8,output_size(T)); 
+	ccall((:gnutls_hash_deinit,gnutls),Void,(Ptr{Void},Ptr{Uint8}),state.handle,ret)
+	state.handle = C_NULL
+	ret
+end
+
+
+hash{T<:HashAlgorithm}(::Type{T},data) = (ret = Array(Uint8,output_size(T)); 
+	ccall((:gnutls_hash_fast,gnutls),Void,(Int32,Ptr{Uint8},Ptr{Uint8},Ptr{Uint8}),gnutls_id(T),data,sizeof(data),ret);ret)
+
 
 end
 
