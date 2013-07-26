@@ -1,9 +1,34 @@
 module GnuTLS
 
+using Base.Meta
 using BinDeps
 @BinDeps.load_dependencies [:gnutls]
 
 import Base: isopen, write, read, readall, readavailable, close, show, nb_available
+
+
+const gnutls_version = convert(VersionNumber,bytestring(ccall((:gnutls_check_version,gnutls),Ptr{Uint8},(Ptr{Uint8},),C_NULL)))
+
+macro gnutls_since(v,f)
+	if isexpr(v,:macrocall) && v.args[1] == symbol("@v_str")
+		v = convert(VersionNumber,v.args[2])
+	end
+	if gnutls_version < v
+		msg = """This function is only supported in GnuTLS versions > $v. 
+				 To force GnuTLS.jl to build a more recent version, you may set 
+				 ENV[\"GNUTLS_VERSION\"] and run Pkg.fixup()"""
+		body = quote
+			error($msg)
+		end
+		if isexpr(f,:function) || isexpr(f,:(=))
+			@assert isexpr(f.args[1],:call)
+			return esc(Expr(f.head,f.args[1],body))
+		else
+			return nothing
+		end
+	end
+	esc(f)
+end
 
 # GnuTLS initialization
 
@@ -94,7 +119,7 @@ type CertificateStore
 end
 
 free_certificate_store(x::CertificateStore) = ccall((:gnutls_certificate_free_credentials,gnutls),Void,(Ptr{Void},),x.handle)
-function set_system_trust!(c::CertificateStore) 
+@gnutls_since v"3.0" function set_system_trust!(c::CertificateStore) 
 	ret = ccall((:gnutls_certificate_set_x509_system_trust,gnutls),Int32,(Ptr{Void},),c.handle)
 	if ret == -1250
 		return false
@@ -107,8 +132,12 @@ function load_certificate(c::CertificateStore,certfile::String,keyfile::String,i
 	gnutls_error(ccall((:gnutls_certificate_set_x509_key_file,gnutls),Int32,(Ptr{Void},Ptr{Uint8},Ptr{Uint8},Int32),c.handle,certfile,keyfile,isPEM?1:0))
 end
 
-const system_certificate_store = CertificateStore()
-const has_system_trust = set_system_trust!(system_certificate_store)
+@gnutls_since v"3.0" begin
+	const system_certificate_store = CertificateStore()
+	const has_system_trust = set_system_trust!(system_certificate_store)
+end
+
+@gnutls_since v"3.0" system_trust() = system_certificate_store()
 
 function poll_readable{S<:IO}(io::S,ms::Uint32)
 	c = Condition()
