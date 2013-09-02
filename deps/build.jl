@@ -22,8 +22,15 @@ if haskey(ENV,"GNUTLS_VERSION")
 else
 	pkgmanager_validate = true
 end
-## Pending successfull bottling, we're just going to fall back on Source for now
-#provides(Homebrew,"gnutls",gnutls,validate = pkgmanager_validate)
+
+@osx_only begin
+	if Pkg.installed("Homebrew") === nothing
+		error("Homebrew package not installed, please run Pkg.add(\"Homebrew\")")
+	end
+	using Homebrew
+	provides( Homebrew.HB, "gnutls", gnutls, os = :Darwin )
+end
+
 provides(AptGet,"libgnutls28",gnutls,validate = pkgmanager_validate) # Yes, this is the most current version, I guess they broke binary compatibility in v2.8?
 provides(Yum,"libgnutls",gnutls,validate = pkgmanager_validate)
 
