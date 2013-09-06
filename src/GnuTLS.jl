@@ -259,7 +259,7 @@ function associate_stream{S<:IO,T<:IO}(s::Session, read::S, write::T=read)
 	else 
 		ccall((:gnutls_transport_set_ptr2,gnutls),Void,(Ptr{Void},Any,Any),s.handle,read,write)
 	end
-	ccall((:gnutls_transport_set_pull_timeout_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(poll_readable,Int32,(S,Uint32)))
+	@gnutls_since v"3.0" ccall((:gnutls_transport_set_pull_timeout_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(poll_readable,Int32,(S,Uint32)))
 	ccall((:gnutls_transport_set_pull_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(read_ptr,Cssize_t,(S,Ptr{Uint8},Csize_t)))
 	ccall((:gnutls_transport_set_push_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(Base.write,Int64,(T,Ptr{Uint8},Csize_t)))
 end
@@ -276,7 +276,7 @@ end
 function get_peer_certificate(s::Session)
 	a = Array(Uint32,1)
 	p = ccall((:gnutls_certificate_get_peers,gnutls),Ptr{Void},(Ptr{Void},Ptr{Uint32}),s.handle,a)
-	import_certificate(p)
+	p != C_NULL ? import_certificate(p) : nothing
 end
 
 const GNUTLS_CRD_CERTIFICATE = 1
