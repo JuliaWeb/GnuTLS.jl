@@ -135,6 +135,10 @@ free_certificate_store(x::CertificateStore) = ccall((:gnutls_certificate_free_cr
 	true
 end
 
+function add_trusted_ca(c::CertificateStore,file,isPEM=false)
+	gnutls_error(ccall((:gnutls_certificate_set_x509_trust_file,gnutls),Int32,(Ptr{Void},Ptr{Uint8},Int32),c.handle,file,isPEM?1:0))
+end
+
 function load_certificate(c::CertificateStore,certfile::String,keyfile::String,isPEM=false)
 	gnutls_error(ccall((:gnutls_certificate_set_x509_key_file,gnutls),Int32,(Ptr{Void},Ptr{Uint8},Ptr{Uint8},Int32),c.handle,certfile,keyfile,isPEM?1:0))
 end
