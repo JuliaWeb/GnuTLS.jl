@@ -4,7 +4,7 @@ using Base.Meta
 using BinDeps
 @BinDeps.load_dependencies [:gnutls]
 
-import Base: isopen, write, read, readall, readavailable, close, show, nb_available
+import Base: isopen, write, read, readall, readavailable, close, show, nb_available, eof
 
 
 const gnutls_version = convert(VersionNumber,bytestring(ccall((:gnutls_check_version,gnutls),Ptr{Uint8},(Ptr{Uint8},),C_NULL)))
@@ -97,10 +97,7 @@ const GNUTLS_SHUT_WR = 1
 free_session(s::Session) = ccall((:gnutls_deinit,gnutls),Void,(Ptr{Void},),s.handle)
 isopen(s::Session) = (isopen(s.read) || isopen(s.write))
 
-function close(s::Session) 
-	if !isopen(s.read) 
-		return 
-	end
+function close(s::Session)
 	ret::Int32 = 0
 	try # The remote might very well simply shut the stream rather than acknowledge the closure
 		ret = ccall((:gnutls_bye,gnutls), Int32, (Ptr{Void},Int32), s.handle, GNUTLS_SHUT_RDWR)
@@ -114,8 +111,45 @@ function close(s::Session)
 	nothing
 end
 
+const GNUTLS_PK_UNKNOWN = 0
+const GNUTLS_PK_RSA = 1
+const GNUTLS_PK_DSA = 2
+const GNUTLS_PK_DH = 3
+const GNUTLS_PK_EC = 4
+
+const GNUTLS_SEC_PARAM_INSECURE = -20
+const GNUTLS_SEC_PARAM_EXPORT = -15
+const GNUTLS_SEC_PARAM_VERY_WEAK = -12
+const GNUTLS_SEC_PARAM_WEAK = -10
+const GNUTLS_SEC_PARAM_UNKNOWN = 0
+const GNUTLS_SEC_PARAM_LOW = 1
+const GNUTLS_SEC_PARAM_LEGACY = 2
+const GNUTLS_SEC_PARAM_NORMAL = 3
+const GNUTLS_SEC_PARAM_HIGH = 4
+const GNUTLS_SEC_PARAM_ULTRA = 5
+
+type DHParameters
+	handle::Ptr{Void}
+	function DHParameters(handle)
+		ret = new(handle)
+		finalizer(ret,free_dh_parameters)
+		ret
+	end
+end
+
+free_dh_parameters(dh::DHParameters) = ccall((:gnutls_dh_params_deinit,gnutls),Void,(Ptr{Void},),dh.handle)
+
+function generate_dh_parameters(;sec_level=GNUTLS_SEC_PARAM_NORMAL)
+	x = Array(Ptr{Void},1)
+	ccall((:gnutls_dh_params_generate2,gnutls),Int32,(Ptr{Void},Uint32),x,
+		ccall((:gnutls_sec_param_to_pk_bits,gnutls),Uint32,(Int32,Uint32),GNUTLS_PK_DH,GNUTLS_SEC_PARAM_NORMAL))
+	DHParameters(x[1])
+end
+
 type CertificateStore
 	handle::Ptr{Void}
+	# for rooting purposes
+	dh_parameters::DHParameters
 	function CertificateStore() 
 		x = Array(Ptr{Void},1)
 		gnutls_error(ccall((:gnutls_certificate_allocate_credentials,gnutls),Int32,(Ptr{Ptr{Void}},),x))
@@ -123,6 +157,11 @@ type CertificateStore
 		finalizer(ret,free_certificate_store)
 		ret
 	end
+end
+
+function set_dh_parameters(c::CertificateStore,dh::DHParameters)
+	c.dh_parameters = dh
+	ccall((:gnutls_certificate_set_dh_params,gnutls),Void,(Ptr{Void},Ptr{Void}),c.handle,dh.handle)
 end
 
 free_certificate_store(x::CertificateStore) = ccall((:gnutls_certificate_free_credentials,gnutls),Void,(Ptr{Void},),x.handle)
@@ -361,6 +400,7 @@ end
 
 
 nb_available(s::Session) = ccall((:gnutls_record_check_pending,gnutls), Csize_t, (Ptr{Void},), s.handle)
+eof(s::Session) = (nb_available(s) == 0 && eof(s.read))
 
 function readavailable(io::Session)
 	buf = IOBuffer(Array(Uint8,0),true,true,true,true,typemax(Int))
