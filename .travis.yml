@@ -15,5 +15,5 @@ script:
     - julia -e "Pkg.init()"
     - mkdir -p ~/.julia/GnuTLS
     - cp -R ./* ~/.julia/GnuTLS
-    - julia -e "Pkg2.update()"
+    - julia -e "Pkg.update()"
     - julia ~/.julia/GnuTLS/test/test.jl

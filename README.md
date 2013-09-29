@@ -10,10 +10,8 @@ In order to install GnuTLS.jl, you need to have a recent version of BinDeps inst
 After that you may install GnuTLS.jl using
 
 ```julia
-Pkg2.clone("https://github.com/loladiro/GnuTLS.jl")
+Pkg.clone("https://github.com/loladiro/GnuTLS.jl")
 ```
-
-Depending on your version of Pkg2, the build script may or may not have run (if it did, that command would have caused lots and lots of output). 
 
 If the build script ran successfully, the following should run successfully:
 
