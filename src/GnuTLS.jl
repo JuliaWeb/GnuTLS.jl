@@ -67,6 +67,19 @@ show(io::IO,err::GnuTLSException) = print(io,"GnuTLS Exception: ",err.msg,error_
 gnutls_error(msg::ASCIIString,err::Int32) = err < 0 ? throw(GnuTLSException(err)) : nothing
 gnutls_error(err::Int32) = err < 0 ? throw(GnuTLSException(err)) : nothing
 
+# Chrome does not Handle EOF properly, but instead just shuts down the transport. This function
+# is a heuristic to determine whether that's what we're dealing with. Using this functions
+# to ignore errors in HTTPS is allowed by RFC2818.
+function is_premature_eof(err::GnuTLSException)
+	if gnutls_version < v"3.0"
+		# GNUTLS_E_UNEXPECTED_PACKAGE_LENGTH
+		return err.code == -9
+	else
+		# GNUTLS_E_PREMATURE_TERMINATION
+		return err.code == -110
+	end
+end
+
 # GnuTLS Session support
 
 const GNUTLS_SERVER = 1
