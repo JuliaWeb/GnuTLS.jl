@@ -2,7 +2,8 @@ module GnuTLS
 
 using Base.Meta
 using BinDeps
-@BinDeps.load_dependencies [:gnutls]
+
+include("../deps/deps.jl")
 
 import Base: isopen, write, read, readall, readavailable, close, show, nb_available, eof
 
