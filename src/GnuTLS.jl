@@ -30,27 +30,6 @@ macro gnutls_since(v,f)
 	esc(f)
 end
 
-# GnuTLS initialization
-
-function logging_func(level::Int32,msg::Ptr{Uint8})
-	println(bytestring(msg))
-	nothing
-end
-
-function init() 
-	ccall((:gnutls_global_set_mem_functions,gnutls),Void,
-		(Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void}),
-		  cglobal(:jl_gc_counted_malloc),   # Malloc
-		  cglobal(:jl_gc_counted_malloc),   # Secure Malloc
-		  C_NULL,							# is_secure (may be NULL)
-          cglobal(:realloc),  				# Realloc
-          cglobal(:jl_gc_counted_free))		# Free
-	ccall((:gnutls_global_set_log_function,gnutls),Void,
-		(Ptr{Void},),cfunction(logging_func,Void,(Int32,Ptr{Uint8})))
-	ccall((:gnutls_global_init,gnutls),Int32,())
-end
-deinit() = ccall((:gnutls_global_deinit,gnutls),Void,())
-
 # GnuTLS Error handling
 
 include("errormap.jl")
@@ -197,7 +176,6 @@ end
 
 @gnutls_since v"3.0" begin
 	const system_certificate_store = CertificateStore()
-	const has_system_trust = set_system_trust!(system_certificate_store)
 end
 
 @gnutls_since v"3.0" system_trust() = system_certificate_store()
@@ -438,6 +416,30 @@ function write{T}(s::Session, a::Array{T})
         invoke(write, (IO, Array), s, a)
     end
 end
+
+# GnuTLS initialization
+
+function logging_func(level::Int32,msg::Ptr{Uint8})
+	println(bytestring(msg))
+	nothing
+end
+
+function init()
+	ccall((:gnutls_global_set_mem_functions,gnutls),Void,
+		(Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void},Ptr{Void}),
+		  cglobal(:jl_gc_counted_malloc),   # Malloc
+		  cglobal(:jl_gc_counted_malloc),   # Secure Malloc
+		  C_NULL,							# is_secure (may be NULL)
+          cglobal(:realloc),  				# Realloc
+          cglobal(:jl_gc_counted_free))		# Free
+	ccall((:gnutls_global_set_log_function,gnutls),Void,
+		(Ptr{Void},),cfunction(logging_func,Void,(Int32,Ptr{Uint8})))
+	ccall((:gnutls_global_init,gnutls),Int32,())
+    @gnutls_since v"3.0" begin
+        global const has_system_trust = set_system_trust!(system_certificate_store)
+    end
+end
+deinit() = ccall((:gnutls_global_deinit,gnutls),Void,())
 
 read(io::Session, ::Type{Uint8}) = (x=Array(Uint8,1);read(io,x);x[1])
 
