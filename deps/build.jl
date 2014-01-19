@@ -3,7 +3,7 @@ using BinDeps
 @BinDeps.setup
 
 nettle = library_dependency("nettle", aliases = ["libnettle"], runtime = false)
-gnutls = library_dependency("gnutls", aliases = ["libgnutls.so.28","libgnutls","libgnutls28"], depends = [nettle], validate = function(p,h)
+gnutls = library_dependency("gnutls", aliases = ["libgnutls.so.28","libgnutls","libgnutls28", "libgnutls-28"], depends = [nettle], validate = function(p,h)
 	if !haskey(ENV,"GNUTLS_VERSION")
 		return true
 	end
@@ -14,7 +14,13 @@ provides(Sources,{
 	URI("http://www.lysator.liu.se/~nisse/archive/nettle-2.7.tar.gz") => nettle,
 	URI("ftp://ftp.gnutls.org/gcrypt/gnutls/v3.2/gnutls-3.2.1.tar.xz") => gnutls})
 
-provides(Binaries,URI("ftp://ftp.gnutls.org/gcrypt/gnutls/w32/gnutls-3.2.1-w32.zip"),gnutls,os = :Windows)
+#provides(Binaries,URI("ftp://ftp.gnutls.org/gcrypt/gnutls/w32/gnutls-3.2.1-w32.zip"),gnutls,os = :Windows)
+
+@windows_only begin
+    using WinRPM
+    provides(WinRPM.RPM,"nettle",nettle,os = :Windows)
+    provides(WinRPM.RPM,"gnutls",gnutls,os = :Windows)
+end
 
 if haskey(ENV,"GNUTLS_VERSION")
 	requested_version = convert(VersionNumber,ENV["GNUTLS_VERSION"])
@@ -46,4 +52,4 @@ provides(BuildProcess,Autotools(lib_dirs = libdirs, include_dirs = includedirs, 
 # If we're installing gnutls from source we better also installl nettle from source, otherwise we end up with a giant mess. 
 provides(BuildProcess,Autotools(libtarget = "lib/libgnutls.la", lib_dirs = libdirs, include_dirs = includedirs, env = env),gnutls,force_depends = {BuildProcess => nettle})
 
-@BinDeps.install
+@BinDeps.install [:gnutls => :gnutls]
