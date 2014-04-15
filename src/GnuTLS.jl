@@ -282,7 +282,7 @@ end
 function read_ptr{S<:IO}(io::S,ptr::Ptr{Uint8},size::Csize_t) 
 	Base.wait_readnb(io,1)
 	n = min(nb_available(io.buffer),size)
-	read(io,pointer_to_array(ptr,int(n)))
+	read!(io,pointer_to_array(ptr,int(n)))
 	return signed(n)
 end
 
