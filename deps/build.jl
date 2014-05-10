@@ -12,7 +12,7 @@ end)
 
 provides(Sources,{
 	URI("http://www.lysator.liu.se/~nisse/archive/nettle-2.7.tar.gz") => nettle,
-	URI("ftp://ftp.gnutls.org/gcrypt/gnutls/v3.2/gnutls-3.2.1.tar.xz") => gnutls})
+	URI("ftp://ftp.gnutls.org/gcrypt/gnutls/v3.2/gnutls-3.2.14.tar.xz") => gnutls})
 
 #provides(Binaries,URI("ftp://ftp.gnutls.org/gcrypt/gnutls/w32/gnutls-3.2.1-w32.zip"),gnutls,os = :Windows)
 
