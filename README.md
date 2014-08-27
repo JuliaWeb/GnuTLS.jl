@@ -3,27 +3,10 @@ GnuTLS.jl
 
 Add transport layer security (TLS) to any Julia Stream
 
-# Installation
+[![Build Status](https://travis-ci.org/JuliaWeb/GnuTLS.jl.svg?branch=master)](https://travis-ci.org/JuliaWeb/GnuTLS.jl)
+[![Coverage Status](https://img.shields.io/coveralls/JuliaWeb/GnuTLS.jl.svg)](https://coveralls.io/r/JuliaWeb/GnuTLS.jl)
 
-In order to install GnuTLS.jl, you need to have a recent version of BinDeps installed. For now, that most likely means that you will need to switch to the master branch of BinDeps. 
-
-After that you may install GnuTLS.jl using
-
-```julia
-Pkg.clone("https://github.com/loladiro/GnuTLS.jl")
-```
-
-If the build script ran successfully, the following should run successfully:
-
-```julia
-using GnuTLS
-```
-
-If not, try
-```bash
-cd ~/.julia/GnuTLS && julia deps/build.jl
-```
-after adjusting the julia command for your installation (do not however change the working directory as the build script dependes upon it).
+**Installation**: `Pkg.add("GnuTLS")`
 
 # API
 
