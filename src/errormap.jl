@@ -1,6 +1,6 @@
 	# Error maps (maps err to (NAME, Description))
 
-const error_codes = {
+const error_codes = Dict{Any,Any}(
  0   =>	("GNUTLS_E_SUCCESS","Success."),
 -3	 => ("GNUTLS_E_UNKNOWN_COMPRESSION_ALGORITHM","Could not negotiate a supported compression method."),
 -6	 => ("GNUTLS_E_UNKNOWN_CIPHER_TYPE","The cipher type is unsupported."),
@@ -152,4 +152,4 @@ const error_codes = {
 -343	 => ("GNUTLS_E_AUTH_ERROR","Could not authenticate peer."),
 -344	 => ("GNUTLS_E_NO_APPLICATION_PROTOCOL","No common application protocol could be negotiated."),
 -1250    => ("GNUTLS_E_UNIMPLEMENTED_FEATURE", "Unimplemented Feature")
-}
+)
