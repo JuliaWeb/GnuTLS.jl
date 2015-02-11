@@ -1,5 +1,6 @@
 module GnuTLS
 
+using Compat
 using Base.Meta
 using BinDeps
 
