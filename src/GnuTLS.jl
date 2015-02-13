@@ -96,7 +96,7 @@ function close(s::Session)
 	try # The remote might very well simply shut the stream rather than acknowledge the closure
 		ret = ccall((:gnutls_bye,gnutls), Int32, (Ptr{Void},Int32), s.handle, GNUTLS_SHUT_RDWR)
 	catch e
-		if !isa(e,EOFError)
+		if !isa(e,EOFError) && !(isa(e,ErrorException) && e.msg=="stream is closed or unusable")
 			rethrow()
 		end
 	end
