@@ -51,15 +51,17 @@ gnutls_error(err::Int32) = err < 0 ? throw(GnuTLSException(err)) : nothing
 # Chrome does not Handle EOF properly, but instead just shuts down the transport. This function
 # is a heuristic to determine whether that's what we're dealing with. Using this functions
 # to ignore errors in HTTPS is allowed by RFC2818.
-function is_premature_eof(err::GnuTLSException)
+function is_premature_eof(code::Integer)
 	if gnutls_version < v"3.0"
 		# GNUTLS_E_UNEXPECTED_PACKAGE_LENGTH
-		return err.code == -9
+		return code == -9
 	else
 		# GNUTLS_E_PREMATURE_TERMINATION
-		return err.code == -110
+		return code == -110
 	end
 end
+
+is_premature_eof(err::GnuTLSException) = is_premature_eof(err.code)
 
 # GnuTLS Session support
 
@@ -96,9 +98,7 @@ function close(s::Session)
 	try # The remote might very well simply shut the stream rather than acknowledge the closure
 		ret = ccall((:gnutls_bye,gnutls), Int32, (Ptr{Void},Int32), s.handle, GNUTLS_SHUT_RDWR)
 	catch e
-		# if !is_premature_eof(e)
 		if !isa(e,EOFError) && !(isa(e,Exception) && e.msg=="stream is closed or unusable")
-			println("e is a $(typeof(e))")
 			rethrow()
 		end
 	end
@@ -375,9 +375,10 @@ end
 function readtobuf(io::Session,buf::IOBuffer,nb)
 	Base.ensureroom(buf,int(nb))
 	ret = ccall((:gnutls_record_recv,gnutls), Int, (Ptr{Void},Ptr{Uint8},Csize_t), io.handle, pointer(buf.data,buf.size+1), nb)
-	if ret < 0 && !(ret == -9 || ret == -110)
+	iseof = is_premature_eof(ret)
+	if ret < 0 && !(iseof)
 		gnutls_error(int32(ret))
-	elseif ret == 0 || ret == -9 || ret == -110
+	elseif ret == 0 || iseof
 		close(io)
 		return false
 	end
