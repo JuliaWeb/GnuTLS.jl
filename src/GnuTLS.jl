@@ -386,16 +386,32 @@ function readtobuf(io::Session,buf::IOBuffer,nb)
 	return true
 end
 
+nb_available(s::Session) = ccall((:gnutls_record_check_pending,gnutls), Csize_t, (Ptr{Void},), s.handle)
+
 const TLS_CHUNK_SIZE = 4096
+
 function readall(io::Session)
-	buf = IOBuffer(Array(Uint8,TLS_CHUNK_SIZE),true,true,true,true,typemax(Int))
-	buf.size = 0
-	while readtobuf(io,buf,TLS_CHUNK_SIZE); end
-	readall(buf)
+	buf = IOBuffer(Array(Uint8,0),true,true,true,true,typemax(Int))
+	m = nb_available(io.read)	# this checks the socket buffer
+	n = nb_available(io)		# this checks GnuTLS buffer
+
+	if m+n == 0
+		readtobuf(io,buf,1)
+		m = nb_available(io.read)
+		n = nb_available(io)
+	end
+
+	while m+n > 0
+		if !readtobuf(io,buf,m+n)
+			break
+		end
+		m = nb_available(io.read)
+		n = nb_available(io)
+	end
+	bytestring(takebuf_array(buf))
 end
 
 
-nb_available(s::Session) = ccall((:gnutls_record_check_pending,gnutls), Csize_t, (Ptr{Void},), s.handle)
 eof(s::Session) = (nb_available(s) == 0 && eof(s.read))
 
 function readavailable(io::Session)
@@ -413,6 +429,7 @@ function readavailable(io::Session)
 	end
 	takebuf_array(buf)
 end
+
 
 function write{T}(s::Session, a::Array{T})
     if isbits(T)
