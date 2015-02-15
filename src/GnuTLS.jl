@@ -16,8 +16,8 @@ macro gnutls_since(v,f)
 		v = convert(VersionNumber,v.args[2])
 	end
 	if gnutls_version < v
-		msg = """This function is only supported in GnuTLS versions > $v. 
-				 To force GnuTLS.jl to build a more recent version, you may set 
+		msg = """This function is only supported in GnuTLS versions > $v.
+				 To force GnuTLS.jl to build a more recent version, you may set
 				 ENV[\"GNUTLS_VERSION\"] and run Pkg.fixup()"""
 		body = quote
 			error($msg)
@@ -51,15 +51,17 @@ gnutls_error(err::Int32) = err < 0 ? throw(GnuTLSException(err)) : nothing
 # Chrome does not Handle EOF properly, but instead just shuts down the transport. This function
 # is a heuristic to determine whether that's what we're dealing with. Using this functions
 # to ignore errors in HTTPS is allowed by RFC2818.
-function is_premature_eof(err::GnuTLSException)
+function is_premature_eof(code::Integer)
 	if gnutls_version < v"3.0"
 		# GNUTLS_E_UNEXPECTED_PACKAGE_LENGTH
-		return err.code == -9
+		return code == -9
 	else
 		# GNUTLS_E_PREMATURE_TERMINATION
-		return err.code == -110
+		return code == -110
 	end
 end
+
+is_premature_eof(err::GnuTLSException) = is_premature_eof(err.code)
 
 # GnuTLS Session support
 
@@ -71,7 +73,7 @@ const GNUTLS_NO_EXTENSIONS = 1<<4
 
 type Session <: IO
 	handle::Ptr{Void}
-	open::Bool 
+	open::Bool
 	# For rooting purposes
 	read::IO
 	write::IO
@@ -96,7 +98,7 @@ function close(s::Session)
 	try # The remote might very well simply shut the stream rather than acknowledge the closure
 		ret = ccall((:gnutls_bye,gnutls), Int32, (Ptr{Void},Int32), s.handle, GNUTLS_SHUT_RDWR)
 	catch e
-		if !isa(e,EOFError)
+		if !isa(e,EOFError) && !(isa(e,Exception) && e.msg=="stream is closed or unusable")
 			rethrow()
 		end
 	end
@@ -144,7 +146,7 @@ type CertificateStore
 	handle::Ptr{Void}
 	# for rooting purposes
 	dh_parameters::DHParameters
-	function CertificateStore() 
+	function CertificateStore()
 		x = Array(Ptr{Void},1)
 		gnutls_error(ccall((:gnutls_certificate_allocate_credentials,gnutls),Int32,(Ptr{Ptr{Void}},),x))
 		ret = new(x[1])
@@ -159,7 +161,7 @@ function set_dh_parameters(c::CertificateStore,dh::DHParameters)
 end
 
 free_certificate_store(x::CertificateStore) = ccall((:gnutls_certificate_free_credentials,gnutls),Void,(Ptr{Void},),x.handle)
-@gnutls_since v"3.0" function set_system_trust!(c::CertificateStore) 
+@gnutls_since v"3.0" function set_system_trust!(c::CertificateStore)
 	ret = ccall((:gnutls_certificate_set_x509_system_trust,gnutls),Int32,(Ptr{Void},),c.handle)
 	if ret == -1250
 		return false
@@ -280,7 +282,7 @@ function poll_readable{S<:IO}(io::S,ms::Uint32)
 	wait(c)::Int32
 end
 
-function read_ptr{S<:IO}(io::S,ptr::Ptr{Uint8},size::Csize_t) 
+function read_ptr{S<:IO}(io::S,ptr::Ptr{Uint8},size::Csize_t)
 	Base.wait_readnb(io,1)
 	n = min(nb_available(io.buffer),size)
 	read!(io,pointer_to_array(ptr,int(n)))
@@ -292,7 +294,7 @@ function associate_stream{S<:IO,T<:IO}(s::Session, read::S, write::T=read)
 	s.write = write
 	if write == read
 		ccall((:gnutls_transport_set_ptr,gnutls),Void,(Ptr{Void},Any),s.handle,read)
-	else 
+	else
 		ccall((:gnutls_transport_set_ptr2,gnutls),Void,(Ptr{Void},Any,Any),s.handle,read,write)
 	end
 	@gnutls_since v"3.0" ccall((:gnutls_transport_set_pull_timeout_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(poll_readable,Int32,(S,Uint32)))
@@ -301,11 +303,11 @@ function associate_stream{S<:IO,T<:IO}(s::Session, read::S, write::T=read)
 end
 
 handshake!(s::Session) = (gnutls_error(ccall((:gnutls_handshake,gnutls),Int32,(Ptr{Void},),s.handle));s.open = true; nothing)
-function set_priority_string!(s::Session,priority::ASCIIString="NORMAL") 
+function set_priority_string!(s::Session,priority::ASCIIString="NORMAL")
 	x = Array(Ptr{Uint8},1)
 	old_ptr = convert(Ptr{Uint8},priority)
 	ret = ccall((:gnutls_priority_set_direct,gnutls),Int32,(Ptr{Void},Ptr{Uint8},Ptr{Ptr{Uint8}}),s.handle,old_ptr,x)
-	offset = x[1] - old_ptr	
+	offset = x[1] - old_ptr
 	gnutls_error("At priority string offset $offset: ",ret)
 end
 
@@ -332,7 +334,7 @@ function set_prompt_client_certificate!(s::Session,required::Bool = true)
 	ccall((:gnutls_certificate_server_set_request,gnutls),Void,(Ptr{Void},Int32),s.handle,required?GNUTLS_CERT_REQUIRE:GNUTLS_CERT_REQUEST)
 end
 
-function write(io::Session, data::Ptr{Uint8}, size::Integer) 
+function write(io::Session, data::Ptr{Uint8}, size::Integer)
 	total = 0
 	while total < length(data)
 		ret = ccall((:gnutls_record_send,gnutls), Int, (Ptr{Void},Ptr{Uint8},Csize_t), io.handle, data+total, size-total)
@@ -344,7 +346,7 @@ function write(io::Session, data::Ptr{Uint8}, size::Integer)
 	total
 end
 
-function write(io::Session, data::Array{Uint8,1})  
+function write(io::Session, data::Array{Uint8,1})
 	total = 0
 	while total < length(data)
 		ret = ccall((:gnutls_record_send,gnutls), Int, (Ptr{Void},Ptr{Uint8},Csize_t), io.handle, pointer(data,total+1), length(data)-total)
@@ -373,9 +375,10 @@ end
 function readtobuf(io::Session,buf::IOBuffer,nb)
 	Base.ensureroom(buf,int(nb))
 	ret = ccall((:gnutls_record_recv,gnutls), Int, (Ptr{Void},Ptr{Uint8},Csize_t), io.handle, pointer(buf.data,buf.size+1), nb)
-	if ret < 0
+	iseof = is_premature_eof(ret)
+	if ret < 0 && !(iseof)
 		gnutls_error(int32(ret))
-	elseif ret == 0
+	elseif ret == 0 || iseof
 		close(io)
 		return false
 	end
@@ -383,16 +386,32 @@ function readtobuf(io::Session,buf::IOBuffer,nb)
 	return true
 end
 
+nb_available(s::Session) = ccall((:gnutls_record_check_pending,gnutls), Csize_t, (Ptr{Void},), s.handle)
+
 const TLS_CHUNK_SIZE = 4096
+
 function readall(io::Session)
-	buf = IOBuffer(Array(Uint8,TLS_CHUNK_SIZE),true,true,true,true,typemax(Int))
-	buf.size = 0
-	while readtobuf(io,buf,TLS_CHUNK_SIZE); end
-	readall(buf)
+	buf = IOBuffer(Array(Uint8,0),true,true,true,true,typemax(Int))
+	m = nb_available(io.read)	# this checks the socket buffer
+	n = nb_available(io)		# this checks GnuTLS buffer
+
+	if m+n == 0
+		readtobuf(io,buf,1)
+		m = nb_available(io.read)
+		n = nb_available(io)
+	end
+
+	while m+n > 0
+		if !readtobuf(io,buf,m+n)
+			break
+		end
+		m = nb_available(io.read)
+		n = nb_available(io)
+	end
+	bytestring(takebuf_array(buf))
 end
 
 
-nb_available(s::Session) = ccall((:gnutls_record_check_pending,gnutls), Csize_t, (Ptr{Void},), s.handle)
 eof(s::Session) = (nb_available(s) == 0 && eof(s.read))
 
 function readavailable(io::Session)
@@ -410,6 +429,7 @@ function readavailable(io::Session)
 	end
 	takebuf_array(buf)
 end
+
 
 function write{T}(s::Session, a::Array{T})
     if isbits(T)
