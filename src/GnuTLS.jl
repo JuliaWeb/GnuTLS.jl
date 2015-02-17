@@ -286,6 +286,9 @@ function read_ptr{S<:IO}(io::S,ptr::Ptr{Uint8},size::Csize_t)
 	return signed(n)
 end
 
+# Store Base.write() return type here, so we work on Julia v0.4+ as well as older
+const write_return_type = VERSION >= v"0.4-" ? typeof(uint64(1)) : typeof(int64(1))
+
 function associate_stream{S<:IO,T<:IO}(s::Session, read::S, write::T=read)
 	s.read = read
 	s.write = write
@@ -296,7 +299,7 @@ function associate_stream{S<:IO,T<:IO}(s::Session, read::S, write::T=read)
 	end
 	@gnutls_since v"3.0" ccall((:gnutls_transport_set_pull_timeout_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(poll_readable,Int32,(S,Uint32)))
 	ccall((:gnutls_transport_set_pull_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(read_ptr,Cssize_t,(S,Ptr{Uint8},Csize_t)))
-	ccall((:gnutls_transport_set_push_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(Base.write,Int64,(T,Ptr{Uint8},Csize_t)))
+	ccall((:gnutls_transport_set_push_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(Base.write,write_return_type,(T,Ptr{Uint8},Csize_t)))
 end
 
 handshake!(s::Session) = (gnutls_error(ccall((:gnutls_handshake,gnutls),Int32,(Ptr{Void},),s.handle));s.open = true; nothing)
