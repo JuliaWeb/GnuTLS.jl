@@ -15,7 +15,6 @@ const GNUTLS_MINSECURE_VER = @compat Dict(
 	v"3.3"	=>	10
 )
 
-const WRITE_RETURN_TYPE = VERSION >= v"0.4-" ? UInt64 : Int64
 const gnutls_version = convert(VersionNumber,bytestring(ccall((:gnutls_check_version,gnutls),Ptr{Uint8},(Ptr{Uint8},),C_NULL)))
 
 function versionisdeprecated(v::VersionNumber)
@@ -311,7 +310,7 @@ function associate_stream{S<:IO,T<:IO}(s::Session, read::S, write::T=read)
 	end
 	@gnutls_since v"3.0" ccall((:gnutls_transport_set_pull_timeout_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(poll_readable,Int32,(S,Uint32)))
 	ccall((:gnutls_transport_set_pull_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(read_ptr,Cssize_t,(S,Ptr{Uint8},Csize_t)))
-	ccall((:gnutls_transport_set_push_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(Base.write,WRITE_RETURN_TYPE,(T,Ptr{Uint8},Csize_t)))
+	ccall((:gnutls_transport_set_push_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(Base.write,Int,(T,Ptr{Uint8},Csize_t)))
 end
 
 handshake!(s::Session) = (gnutls_error(ccall((:gnutls_handshake,gnutls),Int32,(Ptr{Void},),s.handle));s.open = true; nothing)
