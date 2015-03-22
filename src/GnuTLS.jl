@@ -293,31 +293,41 @@ function poll_readable{S<:IO}(io::S,ms::Uint32)
 	wait(c)::Int32
 end
 
-function read_ptr{S<:IO}(io::S,ptr::Ptr{Uint8},size::Csize_t)
+function read_ptr(strm_ref,ptr::Ptr{Uint8},size::Csize_t)
+        io = unsafe_pointer_to_objref(strm_ref)
 	Base.wait_readnb(io,1)
 	n = min(nb_available(io.buffer),size)
-	read!(io,pointer_to_array(ptr,int(n)))
-	return signed(n)
+	@compat read!(io,pointer_to_array(ptr,Int(n)))
+	ret = convert(Cssize_t,n)
+	ret::Cssize_t
 end
 
-function associate_stream{S<:IO,T<:IO}(s::Session, read::S, write::T=read)
-	s.read = read
-	s.write = write
-	if write == read
-		ccall((:gnutls_transport_set_ptr,gnutls),Void,(Ptr{Void},Any),s.handle,read)
+function write_ptr(strm_ref,ptr::Ptr{Uint8},size::Csize_t)
+        io = unsafe_pointer_to_objref(strm_ref)
+        ret = convert(Cssize_t, Base.write(io, ptr, size))
+        ret::Cssize_t
+end
+
+
+function associate_stream{S<:IO,T<:IO}(s::Session, read_strm::S, write_strm::T=read_strm)
+	s.read = read_strm
+	s.write = write_strm
+	if write_strm == read_strm
+		ccall((:gnutls_transport_set_ptr,gnutls),Void,(Ptr{Void},Any),s.handle,read_strm)
 	else
-		ccall((:gnutls_transport_set_ptr2,gnutls),Void,(Ptr{Void},Any,Any),s.handle,read,write)
+		ccall((:gnutls_transport_set_ptr2,gnutls),Void,(Ptr{Void},Any,Any),s.handle,read_strm,write_strm)
 	end
+
 	@gnutls_since v"3.0" ccall((:gnutls_transport_set_pull_timeout_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(poll_readable,Int32,(S,Uint32)))
-	ccall((:gnutls_transport_set_pull_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(read_ptr,Cssize_t,(S,Ptr{Uint8},Csize_t)))
-	ccall((:gnutls_transport_set_push_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(Base.write,Int,(T,Ptr{Uint8},Csize_t)))
+	ccall((:gnutls_transport_set_pull_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(read_ptr,Cssize_t,(Ptr{Void},Ptr{Uint8},Csize_t)))
+	ccall((:gnutls_transport_set_push_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(write_ptr,Cssize_t,(Ptr{Void},Ptr{Uint8},Csize_t)))
 end
 
 handshake!(s::Session) = (gnutls_error(ccall((:gnutls_handshake,gnutls),Int32,(Ptr{Void},),s.handle));s.open = true; nothing)
 function set_priority_string!(s::Session,priority::ASCIIString="NORMAL")
 	x = Array(Ptr{Uint8},1)
-	old_ptr = convert(Ptr{Uint8},priority)
-	ret = ccall((:gnutls_priority_set_direct,gnutls),Int32,(Ptr{Void},Ptr{Uint8},Ptr{Ptr{Uint8}}),s.handle,old_ptr,x)
+	old_ptr = pointer(priority)
+	ret = ccall((:gnutls_priority_set_direct,gnutls),Int32,(Ptr{Void},Ptr{Uint8},Ptr{Ptr{Uint8}}),s.handle,priority,x)
 	offset = x[1] - old_ptr
 	gnutls_error("At priority string offset $offset: ",ret)
 end
