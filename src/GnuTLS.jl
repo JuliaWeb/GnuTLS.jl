@@ -59,7 +59,7 @@ end
 
 GnuTLSException(code::Integer) = GnuTLSException("",code)
 
-show(io::IO,err::GnuTLSException) = print(io,"GnuTLS Exception: ",err.msg,error_codes[int(err.code)][1],"(",string(err.code),"): ",error_codes[int(err.code)][2])
+show(io::IO,err::GnuTLSException) = print(io,"GnuTLS Exception: ",err.msg,error_codes[@compat Int(err.code)][1],"(",string(err.code),"): ",error_codes[@compat Int(err.code)][2])
 
 gnutls_error(msg::ASCIIString,err::Int32) = err < 0 ? throw(GnuTLSException(err)) : nothing
 gnutls_error(err::Int32) = err < 0 ? throw(GnuTLSException(err)) : nothing
@@ -95,7 +95,7 @@ type Session <: IO
 	write::IO
 	function Session(isserver::Bool = false)
 		x = Array(Ptr{Void},1)
-		gnutls_error(ccall((:gnutls_init,gnutls),Int32,(Ptr{Ptr{Void}},Uint32),x,isserver?GNUTLS_SERVER:GNUTLS_CLIENT))
+		gnutls_error(ccall((:gnutls_init,gnutls),Int32,(Ptr{Ptr{Void}},@compat UInt32),x,isserver?GNUTLS_SERVER:GNUTLS_CLIENT))
 		ret = new(x[1],false)
 		finalizer(ret,free_session)
 		ret
@@ -148,8 +148,8 @@ free_dh_parameters(dh::DHParameters) = ccall((:gnutls_dh_params_deinit,gnutls),V
 
 function generate_dh_parameters(;sec_level=GNUTLS_SEC_PARAM_NORMAL)
 	x = Array(Ptr{Void},1)
-	ccall((:gnutls_dh_params_generate2,gnutls),Int32,(Ptr{Void},Uint32),x,
-		ccall((:gnutls_sec_param_to_pk_bits,gnutls),Uint32,(Int32,Uint32),GNUTLS_PK_DH,GNUTLS_SEC_PARAM_NORMAL))
+	ccall((:gnutls_dh_params_generate2,gnutls),Int32,(Ptr{Void},@compat UInt32),x,
+		ccall((:gnutls_sec_param_to_pk_bits,gnutls),@compat UInt32,(Int32,@compat UInt32),GNUTLS_PK_DH,GNUTLS_SEC_PARAM_NORMAL))
 	DHParameters(x[1])
 end
 
@@ -220,7 +220,7 @@ end
 
 immutable Datum
 	data::Ptr{Uint8}
-	size::Uint32
+	size::@compat UInt32
 end
 
 immutable AvaSt
@@ -242,7 +242,7 @@ end
 
 import Base: getindex
 
-#(gnutls_x509_dn_t dn, int irdn, int iava, gnutls_x509_ava_st * ava)
+#(gnutls_x509_dn_t dn, @compat Int irdn, @compat Int iava, gnutls_x509_ava_st * ava)
 function getindex(dn::DistinguishedName,irdn::Integer,iava::Integer)
 	x = Array(AvaSt,1)
 	gnutls_error(ccall((:gnutls_x509_dn_get_rdn_ava,gnutls),Int32,(Ptr{Void},Int32,Int32,Ptr{AvaSt}),dn.handle,irdn,iava,x))
@@ -253,7 +253,7 @@ end
 function subject_alt_name(c::Certificate,seq = 0)
 	s = Array(Csize_t,1)
 	err = ccall((:gnutls_x509_crt_get_subject_alt_name,gnutls),Int32,(Ptr{Void},Cuint,Ptr{Uint8},Ptr{Csize_t},Ptr{Cuint}),c.handle,seq,C_NULL,s,C_NULL)
-	@assert error_codes[int(err)][1] == "GNUTLS_E_SHORT_MEMORY_BUFFER"
+	@assert error_codes[@compat Int(err)][1] == "GNUTLS_E_SHORT_MEMORY_BUFFER"
 	a = Array(Uint8,s[1])
 	gnutls_error(ccall((:gnutls_x509_crt_get_subject_alt_name,gnutls),Int32,(Ptr{Void},Cuint,Ptr{Uint8},Ptr{Csize_t},Ptr{Cuint}),c.handle,seq,a,s,C_NULL))
 	bytestring(a[1:(end-1)])
@@ -280,11 +280,11 @@ function bytestring(d::Datum)
 	bytestring(d.data,d.size)
 end
 
-function poll_readable{S<:IO}(io::S,ms::Uint32)
+function poll_readable{S<:IO}(io::S,ms::@compat UInt32)
 	c = Condition()
 	@async begin
 		sleep(ms/1000)
-		notify(c,int32(0))
+		notify(c,@compat Int32(0))
 	end
 	@async begin
 		err = wait(readnotify(io))
@@ -318,7 +318,7 @@ function associate_stream{S<:IO,T<:IO}(s::Session, read_strm::S, write_strm::T=r
 		ccall((:gnutls_transport_set_ptr2,gnutls),Void,(Ptr{Void},Any,Any),s.handle,read_strm,write_strm)
 	end
 
-	@gnutls_since v"3.0" ccall((:gnutls_transport_set_pull_timeout_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(poll_readable,Int32,(S,Uint32)))
+	@gnutls_since v"3.0" ccall((:gnutls_transport_set_pull_timeout_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(poll_readable,Int32,(S,@compat UInt32)))
 	ccall((:gnutls_transport_set_pull_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(read_ptr,Cssize_t,(Ptr{Void},Ptr{Uint8},Csize_t)))
 	ccall((:gnutls_transport_set_push_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(write_ptr,Cssize_t,(Ptr{Void},Ptr{Uint8},Csize_t)))
 end
@@ -333,8 +333,8 @@ function set_priority_string!(s::Session,priority::ASCIIString="NORMAL")
 end
 
 function get_peer_certificate(s::Session)
-	a = Array(Uint32,1)
-	p = ccall((:gnutls_certificate_get_peers,gnutls),Ptr{Void},(Ptr{Void},Ptr{Uint32}),s.handle,a)
+	a = Array(@compat UInt32,1)
+	p = ccall((:gnutls_certificate_get_peers,gnutls),Ptr{Void},(Ptr{Void},Ptr{@compat UInt32}),s.handle,a)
 	p != C_NULL ? import_certificate(p) : nothing
 end
 
@@ -360,7 +360,7 @@ function write(io::Session, data::Ptr{Uint8}, size::Integer)
 	while total < length(data)
 		ret = ccall((:gnutls_record_send,gnutls), Int, (Ptr{Void},Ptr{Uint8},Csize_t), io.handle, data+total, size-total)
 		if ret < 0
-			gnutls_error(int32(ret))
+			gnutls_error(@compat Int32(ret))
 		end
 		total += ret
 	end
@@ -372,7 +372,7 @@ function write(io::Session, data::Array{Uint8,1})
 	while total < length(data)
 		ret = ccall((:gnutls_record_send,gnutls), Int, (Ptr{Void},Ptr{Uint8},Csize_t), io.handle, pointer(data,total+1), length(data)-total)
 		if ret < 0
-			gnutls_error(int32(ret))
+			gnutls_error(@compat Int32(ret))
 		end
 		total += ret
 	end
@@ -384,7 +384,7 @@ function read(io::Session, data::Array{Uint8,1})
 	while total < length(data)
 		ret = ccall((:gnutls_record_recv,gnutls), Int, (Ptr{Void},Ptr{Uint8},Csize_t), io.handle, data, length(data))
 		if ret < 0
-			gnutls_error(int32(ret))
+			gnutls_error(@compat Int32(ret))
 		elseif ret == 0
 			throw(EOFError())
 		end
@@ -398,11 +398,11 @@ recordmaxsize(io::Session)  = ccall((:gnutls_record_get_max_size, gnutls), Int, 
 recordcheckcorked(io::Session)  = ccall((:gnutls_record_check_corked, gnutls), Int, (Ptr{Void},), io.handle)
 
 function readtobuf(io::Session,buf::IOBuffer,nb)
-	Base.ensureroom(buf,int(nb))
+	Base.ensureroom(buf,@compat Int(nb))
 	ret = ccall((:gnutls_record_recv,gnutls), Int, (Ptr{Void},Ptr{Uint8},Csize_t), io.handle, pointer(buf.data,buf.size+1), nb)
 	iseof = is_premature_eof(ret)
 	if ret < 0 && !(iseof)
-		gnutls_error(int32(ret))
+		gnutls_error(@compat Int32(ret))
 	elseif ret == 0  || iseof
 		close(io)
 		return false
