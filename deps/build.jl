@@ -38,7 +38,7 @@ end
 end
 
 provides(AptGet,"libgnutls28",gnutls,validate = pkgmanager_validate) # Yes, this is the most current version, I guess they broke binary compatibility in v2.8?
-provides(Yum,"libgnutls",gnutls,validate = pkgmanager_validate)
+provides(Yum,"gnutls",gnutls,validate = pkgmanager_validate)
 
 julia_usrdir = normpath(JULIA_HOME*"/../") # This is a stopgap, we need a better builtin solution to get the included libraries
 libdirs = String["$(julia_usrdir)/lib"]
