@@ -37,8 +37,8 @@ end
 	provides( Homebrew.HB, "gnutls", gnutls, os = :Darwin )
 end
 
-provides(AptGet,"libgnutls28",gnutls,validate = pkgmanager_validate) # Yes, this is the most current version, I guess they broke binary compatibility in v2.8?
-provides(Yum,"libgnutls",gnutls,validate = pkgmanager_validate)
+provides(AptGet,["libgnutls28", "libgnutls-deb0-28"],gnutls,validate = pkgmanager_validate) # Yes, this is the most current version, I guess they broke binary compatibility in v2.8?
+provides(Yum,["gnutls", "libgnutls"],gnutls,validate = pkgmanager_validate)
 
 julia_usrdir = normpath(JULIA_HOME*"/../") # This is a stopgap, we need a better builtin solution to get the included libraries
 libdirs = String["$(julia_usrdir)/lib"]
@@ -49,7 +49,7 @@ env = {"HOGWEED_LIBS" => "-L$(libdirs[1]) -L$(BinDeps.libdir(nettle)) -lhogweed 
 
 provides(BuildProcess,Autotools(lib_dirs = libdirs, include_dirs = includedirs, env = env),nettle)
 
-# If we're installing gnutls from source we better also installl nettle from source, otherwise we end up with a giant mess. 
+# If we're installing gnutls from source we better also installl nettle from source, otherwise we end up with a giant mess.
 provides(BuildProcess,Autotools(libtarget = "lib/libgnutls.la", lib_dirs = libdirs, include_dirs = includedirs, env = env),gnutls,force_depends = {BuildProcess => nettle})
 
 @BinDeps.install [:gnutls => :gnutls]
