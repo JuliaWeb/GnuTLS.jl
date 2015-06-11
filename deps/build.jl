@@ -3,7 +3,7 @@ using BinDeps
 @BinDeps.setup
 
 nettle = library_dependency("nettle", aliases = ["libnettle"], runtime = false)
-gnutls = library_dependency("gnutls", aliases = ["libgnutls.so.28","libgnutls","libgnutls28", "libgnutls-28"], depends = [nettle], validate = function(p,h)
+gnutls = library_dependency("gnutls", aliases = ["libgnutls.so.28","libgnutls","libgnutls28", "libgnutls-28", "libgnutls-deb0"], depends = [nettle], validate = function(p,h)
 	if !haskey(ENV,"GNUTLS_VERSION")
 		return true
 	end
