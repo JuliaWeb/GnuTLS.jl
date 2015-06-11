@@ -40,6 +40,7 @@ end
 provides(AptGet,"libgnutls28",gnutls,validate = pkgmanager_validate)
 provides(AptGet,"libgnutls-deb0-28",gnutls,validate = pkgmanager_validate)
 provides(Yum,"libgnutls",gnutls,validate = pkgmanager_validate)
+provides(Yum,"gnutls",gnutls,validate = pkgmanager_validate)
 
 julia_usrdir = normpath(JULIA_HOME*"/../") # This is a stopgap, we need a better builtin solution to get the included libraries
 libdirs = String["$(julia_usrdir)/lib"]
