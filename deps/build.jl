@@ -37,7 +37,8 @@ end
 	provides( Homebrew.HB, "gnutls", gnutls, os = :Darwin )
 end
 
-provides(AptGet,"libgnutls28",gnutls,validate = pkgmanager_validate) # Yes, this is the most current version, I guess they broke binary compatibility in v2.8?
+provides(AptGet,"libgnutls28",gnutls,validate = pkgmanager_validate)
+provides(AptGet,"libgnutls-deb0-28",gnutls,validate = pkgmanager_validate)
 provides(Yum,"libgnutls",gnutls,validate = pkgmanager_validate)
 
 julia_usrdir = normpath(JULIA_HOME*"/../") # This is a stopgap, we need a better builtin solution to get the included libraries
