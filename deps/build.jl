@@ -1,4 +1,4 @@
-using BinDeps
+using BinDeps, Compat
 
 @BinDeps.setup
 
@@ -10,9 +10,9 @@ gnutls = library_dependency("gnutls", aliases = ["libgnutls.so.28","libgnutls","
 	ccall(dlsym(h,:gnutls_check_version),Ptr{Uint8},(Ptr{Uint8},),ENV["GNUTLS_VERSION"]) != C_NULL
 end)
 
-provides(Sources,{
+provides(Sources, @compat Dict(
 	URI("http://www.lysator.liu.se/~nisse/archive/nettle-2.7.tar.gz") => nettle,
-	URI("ftp://ftp.gnutls.org/gcrypt/gnutls/v3.2/gnutls-3.2.14.tar.xz") => gnutls})
+	URI("ftp://ftp.gnutls.org/gcrypt/gnutls/v3.2/gnutls-3.2.14.tar.xz") => gnutls))
 
 #provides(Binaries,URI("ftp://ftp.gnutls.org/gcrypt/gnutls/w32/gnutls-3.2.1-w32.zip"),gnutls,os = :Windows)
 
@@ -44,12 +44,14 @@ julia_usrdir = normpath(JULIA_HOME*"/../") # This is a stopgap, we need a better
 libdirs = String["$(julia_usrdir)/lib"]
 includedirs = String["$(julia_usrdir)/include"]
 
-env = {"HOGWEED_LIBS" => "-L$(libdirs[1]) -L$(BinDeps.libdir(nettle)) -lhogweed -lgmp",
-		"NETTLE_LIBS" => "-L$(libdirs[1]) -L$(BinDeps.libdir(nettle)) -lnettle -lgmp", "LIBS" => "-lgmp ","LD_LIBRARY_PATH"=>join([libdirs[1];BinDeps.libdir(nettle)],":")}
+env = @compat Dict("HOGWEED_LIBS" => "-L$(libdirs[1]) -L$(BinDeps.libdir(nettle)) -lhogweed -lgmp",
+		"NETTLE_LIBS" => "-L$(libdirs[1]) -L$(BinDeps.libdir(nettle)) -lnettle -lgmp", 
+		"LIBS" => "-lgmp ", "LD_LIBRARY_PATH" => join([libdirs[1];BinDeps.libdir(nettle)],":"))
 
 provides(BuildProcess,Autotools(lib_dirs = libdirs, include_dirs = includedirs, env = env),nettle)
 
 # If we're installing gnutls from source we better also installl nettle from source, otherwise we end up with a giant mess. 
-provides(BuildProcess,Autotools(libtarget = "lib/libgnutls.la", lib_dirs = libdirs, include_dirs = includedirs, env = env),gnutls,force_depends = {BuildProcess => nettle})
+provides(BuildProcess,Autotools(libtarget = "lib/libgnutls.la", lib_dirs = libdirs, include_dirs = includedirs, 
+	env = env),gnutls,force_depends = @compat Dict(BuildProcess => nettle))
 
-@BinDeps.install [:gnutls => :gnutls]
+@BinDeps.install @compat Dict(:gnutls => :gnutls)
