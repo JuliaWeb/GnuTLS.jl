@@ -12,7 +12,8 @@ const GNUTLS_MINSECURE_VER = @compat Dict(
 	v"2.12"	=>	23,
 	v"3.1"	=>	28,
 	v"3.2"	=>	20,
-	v"3.3"	=>	10
+	v"3.3"	=>	10,
+	v"3.4"	=>	1
 )
 
 const gnutls_version = convert(VersionNumber,bytestring(ccall((:gnutls_check_version,gnutls),Ptr{Uint8},(Ptr{Uint8},),C_NULL)))
