@@ -115,6 +115,8 @@ function close(s::Session)
 	end
 	gnutls_error(ret)
 	s.open=false
+	close(s.read)
+	close(s.write)
 	nothing
 end
 
