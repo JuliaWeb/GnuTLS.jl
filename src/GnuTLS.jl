@@ -2,7 +2,6 @@ module GnuTLS
 
 using Compat
 using Base.Meta
-using BinDeps
 
 include("../deps/deps.jl")
 
