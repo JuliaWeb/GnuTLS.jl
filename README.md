@@ -22,7 +22,7 @@ The following functions are currently provided:
 
 * `GnuTLS.CertificateStore()`
 
-	Initialize an empty certificate store. Support for authentication is incomplete in the current version
+	Initialize an empty certificate store. Support for authentication is incomplete in the current version.
 
 	NOTE: This method is not exported by default and should be used as `GnuTLS.CertificateStore`
 
@@ -32,7 +32,7 @@ The following functions are currently provided:
 
 * `set_priority_string!(s::Session,priority::ASCIIString="NORMAL")`
 
-	Set the GnuTLS priority string, used to determin which protocol versions to support. For a full list of supported options, see the [GnuTLS manual](http://www.gnutls.org/manual/gnutls.html#Priority-Strings) 
+	Set the GnuTLS priority string, used to determine which protocol versions to support. For a full list of supported options, see the [GnuTLS manual](http://www.gnutls.org/manual/gnutls.html#Priority-Strings). 
 
 * `associate_stream{S<:IO,T<:IO}(s::Session, read::S, write::T=read)`
 
