@@ -10,7 +10,7 @@ notifications:
 sudo: false
 script:
     - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
-    - julia -e 'Pkg.clone(pwd())'
+    - julia -e 'Pkg.clone(pwd()); Pkg.build("GnuTLS")'
     - julia -e 'Pkg.test("GnuTLS", coverage=true)'
 after_success:
     - julia -e 'cd(Pkg.dir("GnuTLS")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(process_folder())'
