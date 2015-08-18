@@ -3,7 +3,11 @@ module GnuTLS
 using Compat
 using Base.Meta
 
-include("../deps/deps.jl")
+if isfile(joinpath(dirname(@__FILE__),"..","deps","deps.jl"))
+    include("../deps/deps.jl")
+else
+    error("GnuTLS not properly installed. Please run Pkg.build(\"GnuTLS\")")
+end
 
 import Base: isopen, write, read, readall, readavailable, close, show, nb_available, eof
 
