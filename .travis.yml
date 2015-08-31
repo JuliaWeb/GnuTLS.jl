@@ -14,5 +14,3 @@ script:
     - julia -e 'Pkg.test("GnuTLS", coverage=true)'
 after_success:
     - julia -e 'cd(Pkg.dir("GnuTLS")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(process_folder())'
-env:
-  GNUTLS_VERSION = 3.3
