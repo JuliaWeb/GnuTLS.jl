@@ -1,4 +1,4 @@
-isdefined(Base, :__precompile__) && __precompile__(true)
+isdefined(Base, :__precompile__) && __precompile__()
 
 module GnuTLS
 
@@ -8,6 +8,14 @@ import Base: isopen, write, read, readall, readavailable, close, show, nb_availa
 using Compat
 using Base.Meta
 
+if isfile(joinpath(dirname(@__FILE__),"..","deps","deps.jl"))
+    include("../deps/deps.jl")
+else
+    error("GnuTLS not properly installed. Please run Pkg.build(\"GnuTLS\")")
+end
+
+const gnutls_version = convert(VersionNumber,
+  bytestring(ccall((:gnutls_check_version,gnutls),Ptr{Uint8},(Ptr{Uint8},),C_NULL)))
 
 const GNUTLS_MINSECURE_VER = @compat Dict(
 	v"2.12"	=>	23,
@@ -25,6 +33,27 @@ function versionisdeprecated(v::VersionNumber)
 	else
 		return true
 	end
+end
+
+macro gnutls_since(v,f)
+	if isexpr(v,:macrocall) && v.args[1] == symbol("@v_str")
+		v = convert(VersionNumber,v.args[2])
+	end
+	if gnutls_version < v
+		msg = """This function is only supported in GnuTLS versions > $v.
+				 To force GnuTLS.jl to build a more recent version, you may set
+				 ENV[\"GNUTLS_VERSION\"] and run Pkg.fixup()"""
+		body = quote
+			error($msg)
+		end
+		if isexpr(f,:function) || isexpr(f,:(=))
+			@assert isexpr(f.args[1],:call)
+			return esc(Expr(f.head,f.args[1],body))
+		else
+			return nothing
+		end
+	end
+	esc(f)
 end
 
 # GnuTLS Error handling
@@ -152,11 +181,8 @@ function set_dh_parameters(c::CertificateStore,dh::DHParameters)
 	ccall((:gnutls_certificate_set_dh_params,gnutls),Void,(Ptr{Void},Ptr{Void}),c.handle,dh.handle)
 end
 
-function free_certificate_store(x::CertificateStore)
-    ccall((:gnutls_certificate_free_credentials,gnutls),Void,(Ptr{Void},),x.handle)
-end
-
-function set_system_trust!(c::CertificateStore)
+free_certificate_store(x::CertificateStore) = ccall((:gnutls_certificate_free_credentials,gnutls),Void,(Ptr{Void},),x.handle)
+@gnutls_since v"3.0" function set_system_trust!(c::CertificateStore)
 	ret = ccall((:gnutls_certificate_set_x509_system_trust,gnutls),Int32,(Ptr{Void},),c.handle)
 	if ret == -1250
 		return false
@@ -173,7 +199,8 @@ function load_certificate(c::CertificateStore,certfile::String,keyfile::String,i
 	gnutls_error(ccall((:gnutls_certificate_set_x509_key_file,gnutls),Int32,(Ptr{Void},Ptr{Uint8},Ptr{Uint8},Int32),c.handle,certfile,keyfile,isPEM?1:0))
 end
 
-system_trust() = system_certificate_store()
+
+@gnutls_since v"3.0" system_trust() = system_certificate_store()
 
 type Certificate
 	handle::Ptr{Void}
@@ -298,7 +325,7 @@ function associate_stream{S<:IO,T<:IO}(s::Session, read_strm::S, write_strm::T=r
 		ccall((:gnutls_transport_set_ptr2,gnutls),Void,(Ptr{Void},Any,Any),s.handle,read_strm,write_strm)
 	end
 
-	gnutls_version >= v"3.0" && ccall((:gnutls_transport_set_pull_timeout_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(poll_readable,Int32,(S,@compat UInt32)))
+	@gnutls_since v"3.0" ccall((:gnutls_transport_set_pull_timeout_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(poll_readable,Int32,(S,@compat UInt32)))
 	ccall((:gnutls_transport_set_pull_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(read_ptr,Cssize_t,(Ptr{Void},Ptr{Uint8},Csize_t)))
 	ccall((:gnutls_transport_set_push_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(write_ptr,Cssize_t,(Ptr{Void},Ptr{Uint8},Csize_t)))
 end
@@ -435,16 +462,7 @@ function logging_func(level::Int32,msg::Ptr{Uint8})
 	nothing
 end
 
-if isfile(joinpath(dirname(@__FILE__),"..","deps","deps.jl"))
-    include("../deps/deps.jl")
-else
-    error("GnuTLS not properly installed. Please run Pkg.build(\"GnuTLS\")")
-end
-
 function __init__()
-    global const gnutls_version = convert(VersionNumber,
-      bytestring(ccall((:gnutls_check_version,gnutls),Ptr{Uint8},(Ptr{Uint8},),C_NULL)))
-
 	if versionisdeprecated(gnutls_version)
 		msg = """This version of the GnuTLS library ($gnutls_version) is deprecated
 			and contains known security vulnerabilities. Please upgrade to a
@@ -462,7 +480,7 @@ function __init__()
 		(Ptr{Void},),cfunction(logging_func,Void,(Int32,Ptr{Uint8})))
 	ccall((:gnutls_global_init,gnutls),Int32,())
 
-    gnutls_version >= v"3.0" && begin
+    @gnutls_since v"3.0" begin
         global const system_certificate_store = CertificateStore()
         global const has_system_trust = set_system_trust!(system_certificate_store)
     end
