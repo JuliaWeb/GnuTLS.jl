@@ -1,3 +1,5 @@
+isdefined(Base, :__precompile__) && __precompile(false)
+
 module GnuTLS
 
 using Compat
