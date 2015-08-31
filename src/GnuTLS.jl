@@ -1,4 +1,4 @@
-isdefined(Base, :__precompile__) && __precompile(false)
+isdefined(Base, :__precompile__) && __precompile__(false)
 
 module GnuTLS
 
