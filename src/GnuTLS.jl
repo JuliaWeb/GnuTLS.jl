@@ -1,4 +1,9 @@
+isdefined(Base, :__precompile__) && __precompile__()
+
 module GnuTLS
+
+export handshake!, associate_stream, set_priority_string!, set_credentials!, CertificateStore, Certificate
+import Base: isopen, write, read, readall, readavailable, close, show, nb_available, eof
 
 using Compat
 using Base.Meta
@@ -9,7 +14,8 @@ else
     error("GnuTLS not properly installed. Please run Pkg.build(\"GnuTLS\")")
 end
 
-import Base: isopen, write, read, readall, readavailable, close, show, nb_available, eof
+const gnutls_version = convert(VersionNumber,
+  bytestring(ccall((:gnutls_check_version,gnutls),Ptr{Uint8},(Ptr{Uint8},),C_NULL)))
 
 const GNUTLS_MINSECURE_VER = @compat Dict(
 	v"2.12"	=>	23,
@@ -18,8 +24,6 @@ const GNUTLS_MINSECURE_VER = @compat Dict(
 	v"3.3"	=>	10,
 	v"3.4"	=>	1
 )
-
-const gnutls_version = convert(VersionNumber,bytestring(ccall((:gnutls_check_version,gnutls),Ptr{Uint8},(Ptr{Uint8},),C_NULL)))
 
 function versionisdeprecated(v::VersionNumber)
 	majmin = convert(VersionNumber,"$(v.major).$(v.minor)")
@@ -195,9 +199,6 @@ function load_certificate(c::CertificateStore,certfile::String,keyfile::String,i
 	gnutls_error(ccall((:gnutls_certificate_set_x509_key_file,gnutls),Int32,(Ptr{Void},Ptr{Uint8},Ptr{Uint8},Int32),c.handle,certfile,keyfile,isPEM?1:0))
 end
 
-@gnutls_since v"3.0" begin
-	const system_certificate_store = CertificateStore()
-end
 
 @gnutls_since v"3.0" system_trust() = system_certificate_store()
 
@@ -461,7 +462,7 @@ function logging_func(level::Int32,msg::Ptr{Uint8})
 	nothing
 end
 
-function init()
+function __init__()
 	if versionisdeprecated(gnutls_version)
 		msg = """This version of the GnuTLS library ($gnutls_version) is deprecated
 			and contains known security vulnerabilities. Please upgrade to a
@@ -478,7 +479,9 @@ function init()
 	ccall((:gnutls_global_set_log_function,gnutls),Void,
 		(Ptr{Void},),cfunction(logging_func,Void,(Int32,Ptr{Uint8})))
 	ccall((:gnutls_global_init,gnutls),Int32,())
+
     @gnutls_since v"3.0" begin
+        global const system_certificate_store = CertificateStore()
         global const has_system_trust = set_system_trust!(system_certificate_store)
     end
 end
@@ -486,8 +489,4 @@ deinit() = ccall((:gnutls_global_deinit,gnutls),Void,())
 
 read(io::Session, ::Type{Uint8}) = (x=Array(Uint8,1);read(io,x);x[1])
 
-export  handshake!, associate_stream, set_priority_string!, set_credentials!, CertificateStore, Certificate
-
 end
-
-GnuTLS.init()
