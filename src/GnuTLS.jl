@@ -435,17 +435,11 @@ function logging_func(level::Int32,msg::Ptr{Uint8})
 	nothing
 end
 
-macro set_gnutls()
-    # Hack to get around a negative interaction between precompilation and
-    # the `@checked_lib' macro of BinDeps.jl
-    deps = readall("../deps/deps.jl")
-    gnutls_path = bytestring(match(r"gnutls \"(.*?)\"", deps).captures[1])
-    quote
-        const $(esc(:gnutls)) = $gnutls_path
-    end
+if isfile(joinpath(dirname(@__FILE__),"..","deps","deps.jl"))
+    include("../deps/deps.jl")
+else
+    error("GnuTLS not properly installed. Please run Pkg.build(\"GnuTLS\")")
 end
-
-@set_gnutls
 
 function __init__()
     global const gnutls_version = convert(VersionNumber,
