@@ -6,6 +6,9 @@ Add transport layer security (TLS) to any Julia Stream
 [![Build Status](https://travis-ci.org/JuliaWeb/GnuTLS.jl.svg?branch=master)](https://travis-ci.org/JuliaWeb/GnuTLS.jl)
 [![Coverage Status](https://coveralls.io/repos/JuliaWeb/GnuTLS.jl/badge.svg?branch=master&service=github)](https://coveralls.io/github/JuliaWeb/GnuTLS.jl?branch=master)
 
+[![GnuTLS](http://pkg.julialang.org/badges/GnuTLS_0.3.svg)](http://pkg.julialang.org/?pkg=GnuTLS&ver=0.3)
+[![GnuTLS](http://pkg.julialang.org/badges/GnuTLS_0.4.svg)](http://pkg.julialang.org/?pkg=GnuTLS&ver=0.4)
+
 **Installation**: `Pkg.add("GnuTLS")`
 
 # API
