@@ -7,7 +7,7 @@ gnutls = library_dependency("gnutls", aliases = ["libgnutls.so.28","libgnutls","
 	if !haskey(ENV,"GNUTLS_VERSION")
 		return true
 	end
-	ccall(dlsym(h,:gnutls_check_version),Ptr{Uint8},(Ptr{Uint8},),ENV["GNUTLS_VERSION"]) != C_NULL
+	ccall(dlsym(h,:gnutls_check_version),Ptr{UInt8},(Ptr{UInt8},),ENV["GNUTLS_VERSION"]) != C_NULL
 end)
 
 provides(Sources, @compat Dict(
@@ -43,8 +43,8 @@ provides(Yum,"libgnutls",gnutls,validate = pkgmanager_validate)
 provides(Yum,"gnutls",gnutls,validate = pkgmanager_validate)
 
 julia_usrdir = normpath(JULIA_HOME*"/../") # This is a stopgap, we need a better builtin solution to get the included libraries
-libdirs = String["$(julia_usrdir)/lib"]
-includedirs = String["$(julia_usrdir)/include"]
+libdirs = AbstractString["$(julia_usrdir)/lib"]
+includedirs = AbstractString["$(julia_usrdir)/include"]
 
 env = @compat Dict("HOGWEED_LIBS" => "-L$(libdirs[1]) -L$(BinDeps.libdir(nettle)) -lhogweed -lgmp",
 		"NETTLE_LIBS" => "-L$(libdirs[1]) -L$(BinDeps.libdir(nettle)) -lnettle -lgmp", 
