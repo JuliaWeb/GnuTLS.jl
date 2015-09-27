@@ -21,7 +21,7 @@ const GNUTLS_MINSECURE_VER = @compat Dict(
 	v"3.4"	=>	1
 )
 
-const gnutls_version = convert(VersionNumber,bytestring(ccall((:gnutls_check_version,gnutls),Ptr{Uint8},(Ptr{Uint8},),C_NULL)))
+const gnutls_version = convert(VersionNumber,bytestring(ccall((:gnutls_check_version,gnutls),Ptr{UInt8},(Ptr{UInt8},),C_NULL)))
 
 function versionisdeprecated(v::VersionNumber)
 	majmin = convert(VersionNumber,"$(v.major).$(v.minor)")
@@ -101,7 +101,7 @@ type Session <: IO
 	write::IO
 	function Session(isserver::Bool = false)
 		x = Array(Ptr{Void},1)
-		gnutls_error(ccall((:gnutls_init,gnutls),Int32,(Ptr{Ptr{Void}},@compat UInt32),x,isserver?GNUTLS_SERVER:GNUTLS_CLIENT))
+		gnutls_error(ccall((:gnutls_init,gnutls),Int32,(Ptr{Ptr{Void}}, UInt32),x,isserver?GNUTLS_SERVER:GNUTLS_CLIENT))
 		ret = new(x[1],false)
 		finalizer(ret,free_session)
 		ret
@@ -156,8 +156,8 @@ free_dh_parameters(dh::DHParameters) = ccall((:gnutls_dh_params_deinit,gnutls),V
 
 function generate_dh_parameters(;sec_level=GNUTLS_SEC_PARAM_NORMAL)
 	x = Array(Ptr{Void},1)
-	ccall((:gnutls_dh_params_generate2,gnutls),Int32,(Ptr{Void},@compat UInt32),x,
-		ccall((:gnutls_sec_param_to_pk_bits,gnutls),@compat UInt32,(Int32,@compat UInt32),GNUTLS_PK_DH,GNUTLS_SEC_PARAM_NORMAL))
+	ccall((:gnutls_dh_params_generate2,gnutls),Int32,(Ptr{Void},UInt32),x,
+		ccall((:gnutls_sec_param_to_pk_bits,gnutls), UInt32, (Int32, UInt32),GNUTLS_PK_DH,GNUTLS_SEC_PARAM_NORMAL))
 	DHParameters(x[1])
 end
 
@@ -190,11 +190,11 @@ free_certificate_store(x::CertificateStore) = ccall((:gnutls_certificate_free_cr
 end
 
 function add_trusted_ca(c::CertificateStore,file,isPEM=false)
-	gnutls_error(ccall((:gnutls_certificate_set_x509_trust_file,gnutls),Int32,(Ptr{Void},Ptr{Uint8},Int32),c.handle,file,isPEM?1:0))
+	gnutls_error(ccall((:gnutls_certificate_set_x509_trust_file,gnutls),Int32,(Ptr{Void},Ptr{UInt8},Int32),c.handle,file,isPEM?1:0))
 end
 
-function load_certificate(c::CertificateStore,certfile::String,keyfile::String,isPEM=false)
-	gnutls_error(ccall((:gnutls_certificate_set_x509_key_file,gnutls),Int32,(Ptr{Void},Ptr{Uint8},Ptr{Uint8},Int32),c.handle,certfile,keyfile,isPEM?1:0))
+function load_certificate(c::CertificateStore,certfile::AbstractString,keyfile::AbstractString,isPEM=false)
+	gnutls_error(ccall((:gnutls_certificate_set_x509_key_file,gnutls),Int32,(Ptr{Void},Ptr{UInt8},Ptr{UInt8},Int32),c.handle,certfile,keyfile,isPEM?1:0))
 end
 
 @gnutls_since v"3.0" begin
@@ -227,8 +227,8 @@ immutable DistinguishedName
 end
 
 immutable Datum
-	data::Ptr{Uint8}
-	size::@compat UInt32
+	data::Ptr{UInt8}
+	size::UInt32
 end
 
 immutable AvaSt
@@ -250,7 +250,7 @@ end
 
 import Base: getindex
 
-#(gnutls_x509_dn_t dn, @compat Int irdn, @compat Int iava, gnutls_x509_ava_st * ava)
+#(gnutls_x509_dn_t dn, Int irdn, Int iava, gnutls_x509_ava_st * ava)
 function getindex(dn::DistinguishedName,irdn::Integer,iava::Integer)
 	x = Array(AvaSt,1)
 	gnutls_error(ccall((:gnutls_x509_dn_get_rdn_ava,gnutls),Int32,(Ptr{Void},Int32,Int32,Ptr{AvaSt}),dn.handle,irdn,iava,x))
@@ -260,14 +260,14 @@ end
 
 function subject_alt_name(c::Certificate,seq = 0)
 	s = Array(Csize_t,1)
-	err = ccall((:gnutls_x509_crt_get_subject_alt_name,gnutls),Int32,(Ptr{Void},Cuint,Ptr{Uint8},Ptr{Csize_t},Ptr{Cuint}),c.handle,seq,C_NULL,s,C_NULL)
+	err = ccall((:gnutls_x509_crt_get_subject_alt_name,gnutls),Int32,(Ptr{Void},Cuint,Ptr{UInt8},Ptr{Csize_t},Ptr{Cuint}),c.handle,seq,C_NULL,s,C_NULL)
 	@assert error_codes[@compat Int(err)][1] == "GNUTLS_E_SHORT_MEMORY_BUFFER"
-	a = Array(Uint8,s[1])
-	gnutls_error(ccall((:gnutls_x509_crt_get_subject_alt_name,gnutls),Int32,(Ptr{Void},Cuint,Ptr{Uint8},Ptr{Csize_t},Ptr{Cuint}),c.handle,seq,a,s,C_NULL))
+	a = Array(UInt8,s[1])
+	gnutls_error(ccall((:gnutls_x509_crt_get_subject_alt_name,gnutls),Int32,(Ptr{Void},Cuint,Ptr{UInt8},Ptr{Csize_t},Ptr{Cuint}),c.handle,seq,a,s,C_NULL))
 	bytestring(a[1:(end-1)])
 end
 
-gnutls_free(d::Datum) = ccall(:jl_gc_counted_free,Void,(Ptr{Uint8},),d.data)
+gnutls_free(d::Datum) = ccall(:jl_gc_counted_free,Void,(Ptr{UInt8},),d.data)
 
 const GNUTLS_CRT_PRINT_FULL 			= 0
 const GNUTLS_CRT_PRINT_ONELINE 			= 1
@@ -288,7 +288,7 @@ function bytestring(d::Datum)
 	bytestring(d.data,d.size)
 end
 
-function poll_readable{S<:IO}(io::S,ms::@compat UInt32)
+function poll_readable{S<:IO}(io::S,ms::UInt32)
 	c = Condition()
 	@async begin
 		sleep(ms/1000)
@@ -301,7 +301,7 @@ function poll_readable{S<:IO}(io::S,ms::@compat UInt32)
 	wait(c)::Int32
 end
 
-function read_ptr(strm_ref,ptr::Ptr{Uint8},size::Csize_t)
+function read_ptr(strm_ref,ptr::Ptr{UInt8},size::Csize_t)
         io = unsafe_pointer_to_objref(strm_ref)
 	Base.wait_readnb(io,1)
 	n = min(nb_available(io.buffer),size)
@@ -310,7 +310,7 @@ function read_ptr(strm_ref,ptr::Ptr{Uint8},size::Csize_t)
 	ret::Cssize_t
 end
 
-function write_ptr(strm_ref,ptr::Ptr{Uint8},size::Csize_t)
+function write_ptr(strm_ref,ptr::Ptr{UInt8},size::Csize_t)
         io = unsafe_pointer_to_objref(strm_ref)
         ret = convert(Cssize_t, Base.write(io, ptr, size))
         ret::Cssize_t
@@ -326,23 +326,23 @@ function associate_stream{S<:IO,T<:IO}(s::Session, read_strm::S, write_strm::T=r
 		ccall((:gnutls_transport_set_ptr2,gnutls),Void,(Ptr{Void},Any,Any),s.handle,read_strm,write_strm)
 	end
 
-	@gnutls_since v"3.0" ccall((:gnutls_transport_set_pull_timeout_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(poll_readable,Int32,(S,@compat UInt32)))
-	ccall((:gnutls_transport_set_pull_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(read_ptr,Cssize_t,(Ptr{Void},Ptr{Uint8},Csize_t)))
-	ccall((:gnutls_transport_set_push_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(write_ptr,Cssize_t,(Ptr{Void},Ptr{Uint8},Csize_t)))
+	@gnutls_since v"3.0" ccall((:gnutls_transport_set_pull_timeout_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(poll_readable,Int32,(S, UInt32)))
+	ccall((:gnutls_transport_set_pull_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(read_ptr,Cssize_t,(Ptr{Void},Ptr{UInt8},Csize_t)))
+	ccall((:gnutls_transport_set_push_function,gnutls),Void,(Ptr{Void},Ptr{Void}),s.handle,cfunction(write_ptr,Cssize_t,(Ptr{Void},Ptr{UInt8},Csize_t)))
 end
 
 handshake!(s::Session) = (gnutls_error(ccall((:gnutls_handshake,gnutls),Int32,(Ptr{Void},),s.handle));s.open = true; nothing)
 function set_priority_string!(s::Session,priority::ASCIIString="NORMAL")
-	x = Array(Ptr{Uint8},1)
+	x = Array(Ptr{UInt8},1)
 	old_ptr = pointer(priority)
-	ret = ccall((:gnutls_priority_set_direct,gnutls),Int32,(Ptr{Void},Ptr{Uint8},Ptr{Ptr{Uint8}}),s.handle,priority,x)
+	ret = ccall((:gnutls_priority_set_direct,gnutls),Int32,(Ptr{Void},Ptr{UInt8},Ptr{Ptr{UInt8}}),s.handle,priority,x)
 	offset = x[1] - old_ptr
 	gnutls_error("At priority string offset $offset: ",ret)
 end
 
 function get_peer_certificate(s::Session)
-	a = Array(@compat UInt32,1)
-	p = ccall((:gnutls_certificate_get_peers,gnutls),Ptr{Void},(Ptr{Void},Ptr{@compat UInt32}),s.handle,a)
+	a = Array(UInt32,1)
+	p = ccall((:gnutls_certificate_get_peers,gnutls),Ptr{Void},(Ptr{Void},Ptr{UInt32}),s.handle,a)
 	p != C_NULL ? import_certificate(p) : nothing
 end
 
@@ -363,10 +363,10 @@ function set_prompt_client_certificate!(s::Session,required::Bool = true)
 	ccall((:gnutls_certificate_server_set_request,gnutls),Void,(Ptr{Void},Int32),s.handle,required?GNUTLS_CERT_REQUIRE:GNUTLS_CERT_REQUEST)
 end
 
-function write(io::Session, data::Ptr{Uint8}, size::Integer)
+function write(io::Session, data::Ptr{UInt8}, size::Integer)
 	total = 0
 	while total < length(data)
-		ret = ccall((:gnutls_record_send,gnutls), Int, (Ptr{Void},Ptr{Uint8},Csize_t), io.handle, data+total, size-total)
+		ret = ccall((:gnutls_record_send,gnutls), Int, (Ptr{Void},Ptr{UInt8},Csize_t), io.handle, data+total, size-total)
 		if ret < 0
 			gnutls_error(@compat Int32(ret))
 		end
@@ -375,10 +375,10 @@ function write(io::Session, data::Ptr{Uint8}, size::Integer)
 	total
 end
 
-function write(io::Session, data::Array{Uint8,1})
+function write(io::Session, data::Array{UInt8,1})
 	total = 0
 	while total < length(data)
-		ret = ccall((:gnutls_record_send,gnutls), Int, (Ptr{Void},Ptr{Uint8},Csize_t), io.handle, pointer(data,total+1), length(data)-total)
+		ret = ccall((:gnutls_record_send,gnutls), Int, (Ptr{Void},Ptr{UInt8},Csize_t), io.handle, pointer(data,total+1), length(data)-total)
 		if ret < 0
 			gnutls_error(@compat Int32(ret))
 		end
@@ -387,10 +387,10 @@ function write(io::Session, data::Array{Uint8,1})
 	total
 end
 
-function read(io::Session, data::Array{Uint8,1})
+function read(io::Session, data::Array{UInt8,1})
 	total = 0
 	while total < length(data)
-		ret = ccall((:gnutls_record_recv,gnutls), Int, (Ptr{Void},Ptr{Uint8},Csize_t), io.handle, data, length(data))
+		ret = ccall((:gnutls_record_recv,gnutls), Int, (Ptr{Void},Ptr{UInt8},Csize_t), io.handle, data, length(data))
 		if ret < 0
 			gnutls_error(@compat Int32(ret))
 		elseif ret == 0
@@ -407,7 +407,7 @@ recordcheckcorked(io::Session)  = ccall((:gnutls_record_check_corked, gnutls), I
 
 function readtobuf(io::Session,buf::IOBuffer,nb)
 	Base.ensureroom(buf,@compat Int(nb))
-	ret = ccall((:gnutls_record_recv,gnutls), Int, (Ptr{Void},Ptr{Uint8},Csize_t), io.handle, pointer(buf.data,buf.size+1), nb)
+	ret = ccall((:gnutls_record_recv,gnutls), Int, (Ptr{Void},Ptr{UInt8},Csize_t), io.handle, pointer(buf.data,buf.size+1), nb)
 	iseof = is_premature_eof(ret)
 	if ret < 0 && !(iseof)
 		gnutls_error(@compat Int32(ret))
@@ -425,7 +425,7 @@ nb_available(s::Session) = ccall((:gnutls_record_check_pending,gnutls), Csize_t,
 eof(s::Session) = (nb_available(s) == 0 && eof(s.read))
 
 function readavailable(io::Session)
-	buf = IOBuffer(Array(Uint8,0),true,true,true,true,typemax(Int))
+	buf = IOBuffer(Array(UInt8,0),true,true,true,true,typemax(Int))
 	n = nb_available(io)
 	if n == 0
 		readtobuf(io,buf,1)
@@ -450,7 +450,7 @@ end
 
 function write{T}(s::Session, a::Array{T})
     if isbits(T)
-        write(s,reinterpret(Uint8,a))
+        write(s,reinterpret(UInt8,a))
     else
         invoke(write, (IO, Array), s, a)
     end
@@ -458,7 +458,7 @@ end
 
 # GnuTLS initialization
 
-function logging_func(level::Int32,msg::Ptr{Uint8})
+function logging_func(level::Int32,msg::Ptr{UInt8})
 	println(bytestring(msg))
 	nothing
 end
@@ -478,7 +478,7 @@ function init()
           cglobal(:realloc),  				# Realloc
           cglobal(:jl_gc_counted_free))		# Free
 	ccall((:gnutls_global_set_log_function,gnutls),Void,
-		(Ptr{Void},),cfunction(logging_func,Void,(Int32,Ptr{Uint8})))
+		(Ptr{Void},),cfunction(logging_func,Void,(Int32,Ptr{UInt8})))
 	ccall((:gnutls_global_init,gnutls),Int32,())
     @gnutls_since v"3.0" begin
         global const has_system_trust = set_system_trust!(system_certificate_store)
@@ -486,7 +486,7 @@ function init()
 end
 deinit() = ccall((:gnutls_global_deinit,gnutls),Void,())
 
-read(io::Session, ::Type{Uint8}) = (x=Array(Uint8,1);read(io,x);x[1])
+read(io::Session, ::Type{UInt8}) = (x=Array(UInt8,1);read(io,x);x[1])
 
 export  handshake!, associate_stream, set_priority_string!, set_credentials!, CertificateStore, Certificate
 
